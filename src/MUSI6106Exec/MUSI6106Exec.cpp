@@ -33,21 +33,63 @@ int main(int argc, char* argv[])
 
     //////////////////////////////////////////////////////////////////////////////
     // parse command line arguments
+    if (argc == 3) {
+        sInputFilePath = std::string(argv[1]);
+        sOutputFilePath = std::string(argv[2]);
+    }
+    else {
+        return 0;
+    }
  
     //////////////////////////////////////////////////////////////////////////////
     // open the input wave file
+    const int kNumChannel = 2;
+    const int kFs = 44100;
+    CAudioFileIf::create(phAudioFile);
+    stFileSpec = CAudioFileIf::FileSpec_t { CAudioFileIf::FileFormat_t::kFileFormatWav, CAudioFileIf::BitStream_t::kFileBitStreamFloat32, kNumChannel, kFs };
+    Error_t inputFileOpenStatus = phAudioFile->openFile(sInputFilePath, CAudioFileIf::FileIoType_t::kFileRead, &stFileSpec);
+    if (inputFileOpenStatus != Error_t::kNoError) {
+        throw inputFileOpenStatus;
+    }
  
     //////////////////////////////////////////////////////////////////////////////
     // open the output text file
+    // std::ofstream hOutputFile(sOutputFilePath, std::ios::binary);
+    hOutputFile = std::fstream(sOutputFilePath, std::ios::binary | std::ios::out);
  
     //////////////////////////////////////////////////////////////////////////////
     // allocate memory
+    long long audioLengthInFrame = 0;
+    phAudioFile->getLength(audioLengthInFrame);
+    ppfAudioData = new float*[kNumChannel];
+    for (int i = 0; i < kNumChannel; ++i) {
+        ppfAudioData[i] = new float[kBlockSize];
+    }
  
     //////////////////////////////////////////////////////////////////////////////
     // get audio data and write it to the output text file (one column per channel)
+    long long kllBlockSize = static_cast<long long>(kBlockSize);
+    for (long long pos = 0; pos < audioLengthInFrame; phAudioFile->getPosition(pos)) {
+        phAudioFile->readData(ppfAudioData, kllBlockSize);
+        for (long long i = 0; i < kllBlockSize; ++i) {
+            for (int j = 0; j < kNumChannel; ++j) {
+                if (j) hOutputFile << " ";
+                hOutputFile << ppfAudioData[j][i];
+            }
+            hOutputFile << std::endl;
+        }
+    }
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up (close files and free memory)
+    hOutputFile.close();
+    phAudioFile->closeFile();
+    CAudioFileIf::destroy(phAudioFile);
+
+    for (int i = 0; i < kNumChannel; ++i) {
+        delete [] ppfAudioData[i];
+    }
+    delete [] ppfAudioData;
 
     // all done
     return 0;
