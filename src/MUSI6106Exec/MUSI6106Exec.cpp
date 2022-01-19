@@ -43,14 +43,14 @@ int main(int argc, char* argv[])
  
     //////////////////////////////////////////////////////////////////////////////
     // open the input wave file
-    const int kNumChannel = 2;
-    const int kFs = 44100;
     CAudioFileIf::create(phAudioFile);
-    stFileSpec = CAudioFileIf::FileSpec_t { CAudioFileIf::FileFormat_t::kFileFormatWav, CAudioFileIf::BitStream_t::kFileBitStreamFloat32, kNumChannel, kFs };
-    Error_t inputFileOpenStatus = phAudioFile->openFile(sInputFilePath, CAudioFileIf::FileIoType_t::kFileRead, &stFileSpec);
+    Error_t inputFileOpenStatus = phAudioFile->openFile(sInputFilePath, CAudioFileIf::FileIoType_t::kFileRead);
     if (inputFileOpenStatus != Error_t::kNoError) {
         throw inputFileOpenStatus;
     }
+    phAudioFile->getFileSpec(stFileSpec);
+    const int kNumChannel = stFileSpec.iNumChannels;
+    const int kFs = stFileSpec.fSampleRateInHz;
  
     //////////////////////////////////////////////////////////////////////////////
     // open the output text file
