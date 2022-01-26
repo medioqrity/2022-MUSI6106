@@ -140,10 +140,12 @@ public:
     \return bool
     */
     virtual bool isEof () = 0;
+
     /*! check if a file is opened
     \return bool
     */
     virtual bool isOpen () = 0;
+
     /*! check is the instance is initialized
     \return bool
     */
