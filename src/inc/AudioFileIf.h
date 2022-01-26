@@ -48,11 +48,13 @@ public:
     \return Error_t
     */
     static Error_t create (CAudioFileIf*& pCInstance);
+
     /*! destroys and audio file IO instance
     \param pCInstance
     \return Error_t
     */
     static Error_t destroy (CAudioFileIf*& pCInstance);
+
     /*! reset instance to initial state
     \param  bFreeMemory: also free the internal memory if true
     \return Error_t
@@ -66,6 +68,7 @@ public:
     \return Error_t
     */
     virtual Error_t openFile (std::string cAudioFileName, FileIoType_t eIoType, FileSpec_t const *psFileSpec = 0) = 0;
+    
     /*! close the current file
     \return Error_t
     */
@@ -137,10 +140,12 @@ public:
     \return bool
     */
     virtual bool isEof () = 0;
+
     /*! check if a file is opened
     \return bool
     */
     virtual bool isOpen () = 0;
+
     /*! check is the instance is initialized
     \return bool
     */
