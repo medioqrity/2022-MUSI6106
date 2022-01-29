@@ -64,6 +64,10 @@ public:
     T getPostInc()
     {
         T value = get();
+
+        // if the container is empty, then we need to also increase write index
+        if (getReadIdx() == getWriteIdx()) incWriteIdx();
+
         incReadIdx();
         return value;
     }
@@ -102,7 +106,12 @@ public:
     */
     void setWriteIdx(int iNewWriteIdx)
     {
-        m_iWriteIdx = iNewWriteIdx % m_iBuffLength;
+        if (iNewWriteIdx < 0) {
+            m_iWriteIdx = m_iBuffLength - (-iNewWriteIdx % m_iBuffLength);
+        }
+        else {
+            m_iWriteIdx = iNewWriteIdx % m_iBuffLength;
+        }
     }
 
     /*! return the current index for reading/get
@@ -119,7 +128,12 @@ public:
     */
     void setReadIdx(int iNewReadIdx)
     {
-        m_iReadIdx = iNewReadIdx % m_iBuffLength;
+        if (iNewReadIdx < 0) {
+            m_iReadIdx = m_iBuffLength - (-iNewReadIdx % m_iBuffLength);
+        }
+        else {
+            m_iReadIdx = iNewReadIdx % m_iBuffLength;
+        }
     }
 
     /*! returns the number of values currently buffered (note: 0 could also mean the buffer is full!)
