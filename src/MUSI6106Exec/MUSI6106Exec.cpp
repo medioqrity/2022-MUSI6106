@@ -31,10 +31,21 @@ int main(int argc, char* argv[])
 
     for (int i = 5; i < 30; i++)
     {
-        pCRingBuff->getNumValuesInBuffer(); // should be five
-        pCRingBuff->getPostInc(); // should be i-5
+        std::cout << "i: " << i << ", pCRingBuff->getNumValuesInBuffer(): " << pCRingBuff->getNumValuesInBuffer();
+        std::cout << ", pCRingBuff->getPostInc(): " << pCRingBuff->getPostInc() << std::endl;
         pCRingBuff->putPostInc(1.F*i);
     }
+
+    // pressure test: test the container overflow behavior
+    pCRingBuff->reset();
+    for (int i = 0; i < 20; ++i) {
+        pCRingBuff->putPostInc(1.F*i);
+    }
+    for (int i = 0; i < 17; ++i) {
+        if (i) std::cout << ", ";
+        std::cout << pCRingBuff->getPostInc();
+    }
+    std::cout << std::endl;
 
     // all done
     return 0;
