@@ -6,6 +6,7 @@
 
 #include "AudioFileIf.h"
 #include "CombFilterIf.h"
+#include "RingBuffer.h"
 
 using std::cout;
 using std::endl;
@@ -29,68 +30,65 @@ int main(int argc, char* argv[])
     CAudioFileIf *phAudioFile = 0;
     std::fstream hOutputFile;
     CAudioFileIf::FileSpec_t stFileSpec;
+    CRingBuffer<float>* pCRingBuff = 0; 
+    
+    static const int kBlockSize = 17;
 
     showClInfo();
 
-    //////////////////////////////////////////////////////////////////////////////
-    // parse command line arguments
-    if (argc == 3) {
-        sInputFilePath = std::string(argv[1]);
-        sOutputFilePath = std::string(argv[2]);
-    }
-    else {
-        return 0;
-    }
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // open the input wave file
-    CAudioFileIf::create(phAudioFile);
-    Error_t inputFileOpenStatus = phAudioFile->openFile(sInputFilePath, CAudioFileIf::FileIoType_t::kFileRead);
-    if (inputFileOpenStatus != Error_t::kNoError) {
-        throw inputFileOpenStatus;
-    }
-    phAudioFile->getFileSpec(stFileSpec);
-    const int kNumChannel = stFileSpec.iNumChannels;
-    const int kFs = stFileSpec.fSampleRateInHz;
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // open the output text file
-    // std::ofstream hOutputFile(sOutputFilePath, std::ios::binary);
-    hOutputFile = std::fstream(sOutputFilePath, std::ios::binary | std::ios::out);
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // allocate memory
-    long long audioLengthInFrame = 0;
-    phAudioFile->getLength(audioLengthInFrame);
-    ppfAudioData = new float*[kNumChannel];
-    for (int i = 0; i < kNumChannel; ++i) {
-        ppfAudioData[i] = new float[kBlockSize];
-    }
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // get audio data and write it to the output text file (one column per channel)
-    long long kllBlockSize = static_cast<long long>(kBlockSize);
-    for (long long pos = 0; pos < audioLengthInFrame; phAudioFile->getPosition(pos)) {
-        phAudioFile->readData(ppfAudioData, kllBlockSize);
-        for (long long i = 0; i < kllBlockSize; ++i) {
-            for (int j = 0; j < kNumChannel; ++j) {
-                if (j) hOutputFile << " ";
-                hOutputFile << ppfAudioData[j][i];
-            }
-            hOutputFile << std::endl;
-        }
+    pCRingBuff = new CRingBuffer<float>(kBlockSize);
+
+    for (int i = 0; i < 5; i++)
+    {
+        pCRingBuff->putPostInc(1.F*i);
     }
 
-    //////////////////////////////////////////////////////////////////////////////
-    // clean-up (close files and free memory)
-    hOutputFile.close();
-    phAudioFile->closeFile();
-    CAudioFileIf::destroy(phAudioFile);
-
-    for (int i = 0; i < kNumChannel; ++i) {
-        delete [] ppfAudioData[i];
+    for (int i = 5; i < 30; i++)
+    {
+        std::cout << "i: " << i << ", pCRingBuff->getNumValuesInBuffer(): " << pCRingBuff->getNumValuesInBuffer();
+        std::cout << ", pCRingBuff->getPostInc(): " << pCRingBuff->getPostInc() << std::endl;
+        pCRingBuff->putPostInc(1.F*i);
     }
-    delete [] ppfAudioData;
+
+    // edge case test: test the container overflow behavior
+    pCRingBuff->reset();
+    for (int i = 0; i < 20; ++i) {
+        pCRingBuff->putPostInc(1.F*i);
+    }
+    for (int i = 0; i < 17; ++i) {
+        if (i) std::cout << ", ";
+        std::cout << pCRingBuff->getPostInc();
+    }
+    std::cout << std::endl;
+
+    // edge case test: test reading empty container behavior
+    pCRingBuff->reset();
+    pCRingBuff->putPostInc(1.F);
+    for (int i = 0; i < 150; ++i) {
+        if (i) std::cout << ", ";
+        std::cout << pCRingBuff->getPostInc();
+    }
+    std::cout << std::endl;
+
+    // edge case test: check if set read index as 0 and write index as n would make the container full.
+    pCRingBuff->reset();
+    pCRingBuff->setReadIdx(0);
+    pCRingBuff->setWriteIdx(kBlockSize);
+    for (int i = 0; i < 5; ++i) {
+        pCRingBuff->putPostInc(2.F * (i + 1));
+    }
+    for (int i = 0; i < 17; ++i) {
+        if (i) std::cout << ", ";
+        std::cout << pCRingBuff->getPostInc();
+    }
+    std::cout << std::endl;
+
+    // edge case test: check what would happen if we set index < 0 or index > kBlockSize
+    pCRingBuff->reset();
+    pCRingBuff->setReadIdx(-273);
+    pCRingBuff->setWriteIdx(kBlockSize + 14);
+
+    std::cout << "read index: " << pCRingBuff->getReadIdx() << ", write index: " << pCRingBuff->getWriteIdx() << std::endl;
 
     // all done
     return 0;
@@ -106,4 +104,3 @@ void     showClInfo()
 
     return;
 }
-
