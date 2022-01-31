@@ -52,3 +52,14 @@ bld
 /3rdparty/sndlib/autom4te.cache/traces.0
 /3rdparty/sndlib/autom4te.cache/traces.1
 /cmake.modules/*.bak
+/.vs/MUSI 6106/v17
+.vs/VSWorkspaceState.json
+.vs/slnx.sqlite
+.vs/MUSI 6106/v17/ipch/AutoPCH/851780a4ec2f10ea/AUDIOFILE.ipch
+.vs/MUSI 6106/v17/Browse.VC.db
+.vs/MUSI 6106/v17/.suo
+*.pdb
+
+.vs/*
+out/*
+CMakeSettings.json
