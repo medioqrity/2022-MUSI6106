@@ -107,7 +107,12 @@ private:
     float           m_fSampleRate;      //!< audio sample rate in Hz
 };
 
+class CCombFilterBase : public CCombFilterIf {
+public:
+	Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames);
+	Error_t setParam(FilterParam_t eParam, float fParamValue);
+	float getParam(FilterParam_t eParam) const;
+};
+
 #endif // #if !defined(__CombFilterIf_hdr__)
-
-
 
