@@ -90,6 +90,10 @@ int main(int argc, char* argv[])
 
     std::cout << "read index: " << pCRingBuff->getReadIdx() << ", write index: " << pCRingBuff->getWriteIdx() << std::endl;
 
+
+    // assignment 2: Comb Filter
+    
+    
     // all done
     return 0;
 
