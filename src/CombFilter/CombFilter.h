@@ -2,7 +2,6 @@
 #define __CombFilter_hdr__
 
 #include "CombFilterIf.h"
-#include "RingBuffer.h"
 
 class FIRCombFilter : public CCombFilterBase {
 public:
@@ -10,15 +9,6 @@ public:
     virtual ~FIRCombFilter();
 
     Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames);
-private:
-    CRingBuffer<float>* m_buffer;
-    float               m_fGain;
-    float               m_fDelay;
-    float               m_fSampleRateInHz;
-    int                 m_iDelayInSample;
-    int                 m_iNumChannels;
-    Error_t setGain(float fGain);
-    Error_t setDelay(float fDelay);
 };
 
 class IIRCombFilter : public CCombFilterBase {
@@ -27,14 +17,6 @@ public:
     virtual ~IIRCombFilter();
 
     Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames);
-private:
-    CRingBuffer<float>* m_buffer;
-    float               m_fGain;
-    float               m_fDelay;
-    int                 m_iDelayInSample;
-    int                 m_iNumChannels;
-    Error_t setGain(float fGain);
-    Error_t setDelay(float fDelay);
 };
 
-#endif
+#endif // #if !defined(__CombFilter_hdr__)

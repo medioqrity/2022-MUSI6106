@@ -2,6 +2,7 @@
 #define __CombFilterIf_hdr__
 
 #include "ErrorDef.h"
+#include "RingBuffer.h"
 
 class CCombFilterBase; // in case you intend to add an internal base class that the user doesn't see (not required)
 
@@ -109,9 +110,30 @@ private:
 
 class CCombFilterBase : public CCombFilterIf {
 public:
-    Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames);
+    CCombFilterBase(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels);
+    virtual Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames);
     Error_t setParam(FilterParam_t eParam, float fParamValue);
     float getParam(FilterParam_t eParam) const;
+protected:
+    // member variables
+    CRingBuffer<float>* m_buffer;
+    float               m_fGain;
+    float               m_fDelay;
+    float               m_fSampleRateInHz;
+    int                 m_iDelayInSample;
+    int                 m_iNumChannels;
+    
+    // constants representing limits
+    const float kfMaxGain = 1.F;
+    const float kfMaxDelay = 1.F; // 1s
+
+    // setter and getter methods
+    Error_t setGain(float fGain);
+    Error_t setDelay(float fDelay);
+    float getGain() const;
+    float getDelay() const;
+private:
+    bool isInRange(float lower, float upper, float value);
 };
 
 #endif // #if !defined(__CombFilterIf_hdr__)
