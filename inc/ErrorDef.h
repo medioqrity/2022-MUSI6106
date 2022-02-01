@@ -18,6 +18,8 @@ enum class Error_t
 
     kUnknownError,
 
+    kNotImplementedError,
+
     kNumErrors
 };
 #endif // #if !defined(__ErrorDef_hdr__)
