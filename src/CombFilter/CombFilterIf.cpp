@@ -69,10 +69,10 @@ Error_t CCombFilterIf::init (CombFilterType_t eFilterType, float fMaxDelayLength
 {
     // initialize comb filter instance using eFilterType
     if (eFilterType == CombFilterType_t::kCombFIR) {
-        m_pCCombFilter = new FIRCombFilter();
+        m_pCCombFilter = new FIRCombFilter(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels);
     }
     else if (eFilterType == CombFilterType_t::kCombIIR) {
-        m_pCCombFilter = new IIRCombFilter();
+        m_pCCombFilter = new IIRCombFilter(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels);
     }
 
     else {

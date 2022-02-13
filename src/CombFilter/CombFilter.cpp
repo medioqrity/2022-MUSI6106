@@ -101,6 +101,10 @@ Error_t FIRCombFilter::process(float** ppfInputBuffer, float** ppfOutputBuffer, 
 	}
 }
 
+FIRCombFilter::~FIRCombFilter() {
+
+}
+
 IIRCombFilter::IIRCombFilter(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
 	: CCombFilterBase(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels) {}
 
@@ -113,4 +117,8 @@ Error_t IIRCombFilter::process(float** ppfInputBuffer, float** ppfOutputBuffer, 
 			m_buffer->putPostInc(ppfOutputBuffer[i][j]);
 		}
 	}
+}
+
+IIRCombFilter::~IIRCombFilter() {
+
 }
