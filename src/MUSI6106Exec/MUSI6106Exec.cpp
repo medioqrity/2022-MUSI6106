@@ -8,6 +8,8 @@
 #include "CombFilterIf.h"
 #include "RingBuffer.h"
 
+#define M_PIl          3.141592653589793238462643383279502884L /* pi */
+
 using std::cout;
 using std::endl;
 
@@ -129,21 +131,87 @@ void processFile(CombFilterArgs_t& args) {
     CAudioFileIf::destroy(phOutputAudioFile);
 }
 
+bool test_1_FIR_cancel_out_when_frequency_matches() {
+    int iSampleRate = 44100;
+    int iNumSample = 1 * iSampleRate;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = static_cast<float>(sin(2 * M_PIl * static_cast<long double>(i) / static_cast<long double>(iNumSampleToCycle)));
+    }
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    combFilterInterface->init(
+        CCombFilterIf::CombFilterType_t::kCombFIR, 
+        static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+        static_cast<float>(iSampleRate), 
+        1
+    );
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamDelay, 0.01);
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, -1);
+
+    combFilterInterface->process(input, output, iNumSample);
+
+    bool return_value = true;
+    for (int i = iNumSampleToCycle; i < iNumSample; ++i) {
+        if (output[0][i] > 1e-6F) {
+            std::printf("%d: %.8f\n", i, output[0][i]);
+            return_value = false;
+        }
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
+void runTests() {
+    typedef bool (*fp)(); /* function pointer type */
+    fp testFunctions[] = {
+        test_1_FIR_cancel_out_when_frequency_matches,
+    };
+
+    for (int i = 0; i < 1; ++i) {
+        std::printf("Running test %d...", i);
+        fp testFunctionPointer = testFunctions[i];
+        if (testFunctionPointer()) {
+            std::printf("\033[32m[PASS]\033[39m\n");
+        }
+        else {
+            std::printf("\033[31m[FAIL]\033[39m\n");
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 // main function
-int main(int argc, char* argv[])
-{
-    /* First parse arguments, which is essential for audio file interface & combfilter initialization */
-    try {
-        CombFilterArgs_t args = parseArg(argc, argv);
-        processFile(args);
+int main(int argc, char* argv[]) {
+    if (argc > 1) {
+        /* First parse arguments, which is essential for audio file interface & combfilter initialization */
+        try {
+            CombFilterArgs_t args = parseArg(argc, argv);
+            processFile(args);
+        }
+        catch (std::exception& e) {
+            std::fprintf(stderr, "Error when trying to parse arguments: %s", e.what());
+        }
     }
-    catch (std::exception& e) {
-        std::fprintf(stderr, "Error when trying to parse arguments: %s", e.what());
+    else {
+        std::printf("No argument given, run tests by default.\n");
+        runTests();
     }
     // all done
     return 0;
-
 }
 
 

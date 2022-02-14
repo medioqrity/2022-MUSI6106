@@ -31,7 +31,7 @@ void CCombFilterBase::clearRingBuffer() {
 Setter part
 */
 Error_t CCombFilterBase::setGain(float fGain) {
-    if (!isInRange(0.F, m_kfMaxGain, fGain)) {
+    if (!isInRange(-m_kfMaxGain, m_kfMaxGain, fGain)) {
         return Error_t::kFunctionInvalidArgsError;
     }
     m_fGain = fGain;
