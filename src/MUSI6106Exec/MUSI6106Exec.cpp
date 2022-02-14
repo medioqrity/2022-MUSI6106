@@ -158,7 +158,7 @@ bool test_1_FIR_cancel_out_when_frequency_matches() {
     combFilterInterface->process(input, output, iNumSample);
 
     bool return_value = true;
-    for (int i = iNumSampleToCycle; i < iNumSample; ++i) {
+    for (int i = iNumSampleToCycle; i < iNumSample && return_value; ++i) {
         if (output[0][i] > 1e-8F) {
             std::printf("%d: %.8f\n", i, output[0][i]);
             return_value = false;
@@ -223,15 +223,70 @@ bool test_2_IIR_mag_change_when_frequency_matches() {
     return return_value;
 }
 
+bool test_3_varying_input_block_size() {
+    int iSampleRate = 44100;
+    int iNumSample = (1 << 16) - 1;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    float** refOutput = new float*[1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+    refOutput[0] = new float[iNumSample];
+
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = static_cast<float>(sin(2 * M_PIl * static_cast<long double>(i) / static_cast<long double>(iNumSampleToCycle)));
+    }
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    combFilterInterface->init(
+        CCombFilterIf::CombFilterType_t::kCombIIR, 
+        static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+        static_cast<float>(iSampleRate), 
+        1
+    );
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, 1);
+
+    float** tempInput = new float*[1], ** tempOutput = new float*[1];
+    for (int blockSize = 1, i = 0; i < iNumSample && blockSize < 65536; i += blockSize, blockSize <<= 1) {
+        tempInput[0] = input[0] + i;
+        tempOutput[0] = output[0] + i;
+        combFilterInterface->process(tempInput, tempOutput, blockSize);
+    }
+    
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamDelay, static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate));
+    combFilterInterface->process(input, refOutput, iNumSample);
+
+    bool return_value = true;
+    for (int i = 0; i < iNumSample; ++i) {
+        if (abs(output[0][i] - refOutput[0][i]) > 1e-8) {
+            std::printf("output[0][%d]: %.8f, refOutput[0][%d]: %.8f\n", i, output[0][i], i, refOutput[0][i]);
+            return_value = false;
+        }
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    delete[] tempInput;
+    delete[] tempOutput;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
 void runTests() {
     typedef bool (*fp)(); /* function pointer type */
     fp testFunctions[] = {
         test_1_FIR_cancel_out_when_frequency_matches,
         test_2_IIR_mag_change_when_frequency_matches,
-
+        test_3_varying_input_block_size
     };
 
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 3; ++i) {
         fp testFunctionPointer = testFunctions[i];
         if (testFunctionPointer()) {
             std::printf("\033[32m[PASS]\033[39m");
