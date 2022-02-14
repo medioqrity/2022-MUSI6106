@@ -333,16 +333,69 @@ bool test_4_zero_input_signal() {
     return return_value;
 }
 
+bool test_5_varying_parameter_gain() {
+    int iSampleRate = 44100;
+    int iNumSample = 1 * iSampleRate;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    float** tempInput = new float* [1];
+    float** tempOutput = new float* [1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+
+    bool return_value = true;
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = 1.F;
+    }
+
+    combFilterInterface->init(
+        CCombFilterIf::CombFilterType_t::kCombFIR,
+        static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+        static_cast<float>(iSampleRate), 
+        1
+    );
+
+    for (int i = 0, j = -1; i < iNumSample; i += iNumSampleToCycle, j *= -1) {
+        tempInput[0] = input[0] + i;
+        tempOutput[0] = output[0] + i;
+        combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, j);
+        combFilterInterface->process(tempInput, tempOutput, iNumSampleToCycle);
+    }
+
+    for (int i = iNumSampleToCycle, j = 1; i < iNumSample; i += iNumSampleToCycle, j *= -1) {
+        if (abs(output[0][i] - (j + 1)) > 1e-8F) {
+            std::printf("%d: %.8f, %d\n", i, output[0][i], (j + 1));
+            return_value = false;
+        }
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    delete[] tempInput;
+    delete[] tempOutput;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
 void runTests() {
     typedef bool (*fp)(); /* function pointer type */
     fp testFunctions[] = {
         test_1_FIR_cancel_out_when_frequency_matches,
         test_2_IIR_mag_change_when_frequency_matches,
         test_3_varying_input_block_size,
-        test_4_zero_input_signal
+        test_4_zero_input_signal,
+        test_5_varying_parameter_gain
     };
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         fp testFunctionPointer = testFunctions[i];
         if (testFunctionPointer()) {
             std::printf("\033[32m[PASS]\033[39m");
