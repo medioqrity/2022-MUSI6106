@@ -73,7 +73,7 @@ Error_t CCombFilterIf::destroy (CCombFilterIf*& pCCombFilter)
 
 Error_t CCombFilterIf::init (CombFilterType_t eFilterType, float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
 {
-    // if (m_bIsInitialized) return Error_t::kNoError;
+    assert(!m_bIsInitialized);
     // initialize comb filter instance using eFilterType
     if (eFilterType == CombFilterType_t::kCombFIR) {
         m_pCCombFilter = new FIRCombFilter(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels);
@@ -105,6 +105,8 @@ Error_t CCombFilterIf::reset ()
     if (m_pCCombFilter != nullptr) {
         delete m_pCCombFilter;
     } // what should I do if (m_pCCombFilter == nullptr)?
+
+    m_pCCombFilter = nullptr;
 
     return Error_t::kNoError;
 }
