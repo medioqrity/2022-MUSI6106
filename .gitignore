@@ -65,3 +65,4 @@ out/*
 CMakeSettings.json
 
 *.wav
+*.pkf
