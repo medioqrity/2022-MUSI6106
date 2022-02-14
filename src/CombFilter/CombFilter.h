@@ -38,7 +38,7 @@ private:
     void clearRingBuffer();
 
     // constants representing parameter limits, which is hard coded in setGain & setDelay parameter checking.
-    const float m_kfMaxGain = 1.F;
+    const float m_kfMaxGain = 5.F;
     const float m_kfMaxDelay = 1.F; // 1s
 };
 
