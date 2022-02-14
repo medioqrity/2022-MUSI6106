@@ -1,19 +1,30 @@
 #include "CombFilter.h"
 
 CCombFilterBase::CCombFilterBase(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
-: m_fGain(0.F), m_iNumChannels(iNumChannels), m_buffer(nullptr)
+: m_fGain(0.F), m_iNumChannels(iNumChannels), m_buffer(nullptr), m_fSampleRateInHz(fSampleRateInHz)
 {
     setDelay(fMaxDelayLengthInS);
 }
 
 CCombFilterBase::~CCombFilterBase() {
-    if (m_buffer != nullptr) {
-        delete m_buffer;
-    }
+    clearRingBuffer();
 }
 
 bool CCombFilterBase::isInRange(float lower, float upper, float value) {
     return (lower <= value && value < upper);
+}
+
+void CCombFilterBase::clearRingBuffer() {
+    if (m_buffer != nullptr) {
+        for (int i = 0; i < m_iNumChannels; ++i) {
+            if (m_buffer[i] != nullptr) {
+                delete m_buffer[i];
+                m_buffer[i] = nullptr;
+            }
+        }
+        delete[] m_buffer;
+    }
+    m_buffer = nullptr;
 }
 
 /*
@@ -35,11 +46,15 @@ Error_t CCombFilterBase::setDelay(float fDelay) {
         return Error_t::kFunctionInvalidArgsError;
     }
 	m_fDelay = fDelay;
-	m_iDelayInSample = static_cast<int>(m_fDelay / m_fSampleRateInHz);
-	if (m_buffer != nullptr) {
-		delete m_buffer;
-	}
-	m_buffer = new CRingBuffer<float>(m_iDelayInSample);
+	m_iDelayInSample = static_cast<int>(m_fDelay * m_fSampleRateInHz);
+    clearRingBuffer();
+
+    m_buffer = new CRingBuffer<float>*[m_iNumChannels];
+    for (int i = 0; i < m_iNumChannels; ++i) {
+	    m_buffer[i] = new CRingBuffer<float>(m_iDelayInSample);
+        m_buffer[i]->setWriteIdx(m_iDelayInSample);
+    }
+
     return Error_t::kNoError;
 }
 
@@ -88,17 +103,17 @@ float CCombFilterBase::getParam(CCombFilterIf::FilterParam_t eParam) const {
 }
 
 FIRCombFilter::FIRCombFilter(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
-	: CCombFilterBase(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels) {}
+    : CCombFilterBase(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels) {
+}
 
 Error_t FIRCombFilter::process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) {
 	for (int i = 0; i < m_iNumChannels; ++i) {
-		m_buffer->reset();
-		m_buffer->setWriteIdx(m_iDelayInSample);
 		for (int j = 0; j < iNumberOfFrames; ++j) {
-			ppfOutputBuffer[i][j] = ppfInputBuffer[i][j] + m_fGain * m_buffer->getPostInc();
-			m_buffer->putPostInc(ppfInputBuffer[i][j]);
+			ppfOutputBuffer[i][j] = ppfInputBuffer[i][j] + m_fGain * m_buffer[i]->getPostInc();
+			m_buffer[i]->putPostInc(ppfInputBuffer[i][j]);
 		}
 	}
+    return Error_t::kNoError;
 }
 
 FIRCombFilter::~FIRCombFilter() {
@@ -106,17 +121,16 @@ FIRCombFilter::~FIRCombFilter() {
 }
 
 IIRCombFilter::IIRCombFilter(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
-	: CCombFilterBase(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels) {}
+	: CCombFilterBase(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels) { }
 
 Error_t IIRCombFilter::process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) {
 	for (int i = 0; i < m_iNumChannels; ++i) {
-		m_buffer->reset();
-		m_buffer->setWriteIdx(m_iDelayInSample);
 		for (int j = 0; j < iNumberOfFrames; ++j) {
-			ppfOutputBuffer[i][j] = ppfInputBuffer[i][j] + m_fGain * m_buffer->getPostInc();
-			m_buffer->putPostInc(ppfOutputBuffer[i][j]);
+			ppfOutputBuffer[i][j] = ppfInputBuffer[i][j] + m_fGain * m_buffer[i]->getPostInc();
+			m_buffer[i]->putPostInc(ppfOutputBuffer[i][j]);
 		}
 	}
+    return Error_t::kNoError;
 }
 
 IIRCombFilter::~IIRCombFilter() {

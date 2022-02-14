@@ -19,12 +19,12 @@ public:
 
 protected:
     // member variables
-    CRingBuffer<float>* m_buffer;
-    float               m_fGain;
-    float               m_fDelay;
-    float               m_fSampleRateInHz;
-    int                 m_iDelayInSample;
-    int                 m_iNumChannels;
+    CRingBuffer<float>** m_buffer;
+    float                m_fGain;
+    float                m_fDelay;
+    float                m_fSampleRateInHz;
+    int                  m_iDelayInSample;
+    int                  m_iNumChannels;
     
     // setter and getter methods
     Error_t setGain(float fGain);
@@ -35,6 +35,7 @@ protected:
 private:
     // to check if the parameter we are trying to set is valid
     bool isInRange(float lower, float upper, float value);
+    void clearRingBuffer();
 
     // constants representing parameter limits, which is hard coded in setGain & setDelay parameter checking.
     const float m_kfMaxGain = 1.F;

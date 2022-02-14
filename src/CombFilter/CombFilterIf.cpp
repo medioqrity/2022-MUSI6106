@@ -57,16 +57,23 @@ const char*  CCombFilterIf::getBuildDate ()
 
 Error_t CCombFilterIf::create (CCombFilterIf*& pCCombFilter)
 {
+    pCCombFilter = new CCombFilterIf();
+    if (pCCombFilter == nullptr) {
+        return Error_t::kMemError;
+    }
     return Error_t::kNoError;
 }
 
 Error_t CCombFilterIf::destroy (CCombFilterIf*& pCCombFilter)
 {
+    delete pCCombFilter;
+    pCCombFilter = nullptr;
     return Error_t::kNoError;
 }
 
 Error_t CCombFilterIf::init (CombFilterType_t eFilterType, float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
 {
+    // if (m_bIsInitialized) return Error_t::kNoError;
     // initialize comb filter instance using eFilterType
     if (eFilterType == CombFilterType_t::kCombFIR) {
         m_pCCombFilter = new FIRCombFilter(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels);
@@ -74,7 +81,6 @@ Error_t CCombFilterIf::init (CombFilterType_t eFilterType, float fMaxDelayLength
     else if (eFilterType == CombFilterType_t::kCombIIR) {
         m_pCCombFilter = new IIRCombFilter(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels);
     }
-
     else {
         return Error_t::kFunctionInvalidArgsError;
     }
@@ -84,6 +90,8 @@ Error_t CCombFilterIf::init (CombFilterType_t eFilterType, float fMaxDelayLength
 
     // the initialization is done
     m_bIsInitialized = true;
+
+    return Error_t::kNoError;
 }
 
 Error_t CCombFilterIf::reset ()

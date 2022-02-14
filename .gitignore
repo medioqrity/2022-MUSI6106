@@ -63,3 +63,5 @@ bld
 .vs/*
 out/*
 CMakeSettings.json
+
+*.wav

@@ -14,86 +14,133 @@ using std::endl;
 // local function declarations
 void    showClInfo ();
 
-/////////////////////////////////////////////////////////////////////////////////
-// main function
-int main(int argc, char* argv[])
-{
-    std::string sInputFilePath,                 //!< file paths
-                sOutputFilePath;
+typedef struct CombFilterArgs {
+    CCombFilterIf::CombFilterType_t filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
+    float delay = 0.1F;
+    float gain = 0.5F;
+    std::string inputPath = "fake_id.wav";
+    std::string outputPath = "out.wav";
+} CombFilterArgs_t;
 
+/*
+Simple command line argument parser.
+*/
+CombFilterArgs_t parseArg(int argc, char** argv) {
+    CombFilterArgs_t result;
+    for (int i = 0; i < argc; ++i) {
+        if (argv[i][0] == '-') { /* this is an argument */
+            if (argv[i][1] == 't') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of comb filter type!"));
+                ++i;
+                if (!strcmp(argv[i], "FIR")) { /* argv[i][1:] == "FIR" */
+                    result.filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
+                }
+                else if (!strcmp(argv[i], "IIR")) {
+                    result.filterType = CCombFilterIf::CombFilterType_t::kCombIIR;
+                }
+                else {
+                    throw(std::exception("unknown argument!"));
+                }
+            }
+            else if (argv[i][1] == 'd') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of delay!"));
+                result.delay = std::stof(argv[++i]);
+            }
+            else if (argv[i][1] == 'g') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of gain!"));
+                result.gain = std::stof(argv[++i]);
+            }
+            else if (argv[i][1] == 'i') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of input file path!"));
+                result.inputPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'o') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of output file path!"));
+                result.outputPath = std::string(argv[++i]);
+            }
+            else {
+                throw(std::exception("unknown argument!"));
+            }
+        }
+    }
+    return result;
+}
+
+void processFile(CombFilterArgs_t& args) {
     static const int kBlockSize = 1024;
 
     clock_t time = 0;
 
-    float **ppfAudioData = 0;
+    /* Initialize input & output audio files */
+    CAudioFileIf *phInputAudioFile = nullptr;
+    CAudioFileIf *phOutputAudioFile = nullptr;
 
-    CAudioFileIf *phAudioFile = 0;
-    std::fstream hOutputFile;
-    CAudioFileIf::FileSpec_t stFileSpec;
-    CRingBuffer<float>* pCRingBuff = 0; 
+    CAudioFileIf::FileSpec_t stInputFileSpec;
+    CAudioFileIf::FileSpec_t stOutputFileSpec;
+
+    CAudioFileIf::create(phInputAudioFile);
+    CAudioFileIf::create(phOutputAudioFile);
+
+    phInputAudioFile->openFile(args.inputPath, CAudioFileIf::FileIoType_t::kFileRead);
+    phInputAudioFile->getFileSpec(stInputFileSpec);
+    phOutputAudioFile->openFile(args.outputPath, CAudioFileIf::FileIoType_t::kFileWrite, &stInputFileSpec);
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    combFilterInterface->init(args.filterType, args.delay, stInputFileSpec.fSampleRateInHz, stInputFileSpec.iNumChannels);
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamDelay, args.delay);
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, args.gain);
+
+    /* Initialize audio buffer arrays */
+    long long kllBlockSize = static_cast<long long>(kBlockSize);
+
+    float** ppfInputAudioData, **ppfOutputAudioData;
+    ppfInputAudioData = new float* [stInputFileSpec.iNumChannels];
+    ppfOutputAudioData = new float* [stInputFileSpec.iNumChannels];
+    for (int i = 0; i < stInputFileSpec.iNumChannels; ++i) {
+        ppfInputAudioData[i] = new float[kllBlockSize];
+        ppfOutputAudioData[i] = new float[kllBlockSize];
+    }
+
+    long long audioLengthInFrame = 0;
+
+    /* Iterate over whole file and apply effect */
+    phInputAudioFile->getLength(audioLengthInFrame);
+    for (long long pos = 0; pos < audioLengthInFrame; phInputAudioFile->getPosition(pos)) {
+        phInputAudioFile->readData(ppfInputAudioData, kllBlockSize);
+        combFilterInterface->process(ppfInputAudioData, ppfOutputAudioData, kllBlockSize);
+        phOutputAudioFile->writeData(ppfOutputAudioData, kllBlockSize);
+    }
+
+    phOutputAudioFile->closeFile();
+
+    /* Clean up allocated things */
+    for (int i = 0; i < stInputFileSpec.iNumChannels; ++i) {
+        delete [] ppfInputAudioData[i];
+        delete [] ppfOutputAudioData[i];
+    }
+    delete[] ppfInputAudioData;
+    delete[] ppfOutputAudioData;
     
-    static const int kBlockSize = 17;
+    CCombFilterIf::destroy(combFilterInterface);
 
-    showClInfo();
+    CAudioFileIf::destroy(phInputAudioFile);
+    CAudioFileIf::destroy(phOutputAudioFile);
+}
 
-    pCRingBuff = new CRingBuffer<float>(kBlockSize);
-
-    for (int i = 0; i < 5; i++)
-    {
-        pCRingBuff->putPostInc(1.F*i);
+/////////////////////////////////////////////////////////////////////////////////
+// main function
+int main(int argc, char* argv[])
+{
+    /* First parse arguments, which is essential for audio file interface & combfilter initialization */
+    try {
+        CombFilterArgs_t args = parseArg(argc, argv);
+        processFile(args);
     }
-
-    for (int i = 5; i < 30; i++)
-    {
-        std::cout << "i: " << i << ", pCRingBuff->getNumValuesInBuffer(): " << pCRingBuff->getNumValuesInBuffer();
-        std::cout << ", pCRingBuff->getPostInc(): " << pCRingBuff->getPostInc() << std::endl;
-        pCRingBuff->putPostInc(1.F*i);
+    catch (std::exception& e) {
+        std::fprintf(stderr, "Error when trying to parse arguments: %s", e.what());
     }
-
-    // edge case test: test the container overflow behavior
-    pCRingBuff->reset();
-    for (int i = 0; i < 20; ++i) {
-        pCRingBuff->putPostInc(1.F*i);
-    }
-    for (int i = 0; i < 17; ++i) {
-        if (i) std::cout << ", ";
-        std::cout << pCRingBuff->getPostInc();
-    }
-    std::cout << std::endl;
-
-    // edge case test: test reading empty container behavior
-    pCRingBuff->reset();
-    pCRingBuff->putPostInc(1.F);
-    for (int i = 0; i < 150; ++i) {
-        if (i) std::cout << ", ";
-        std::cout << pCRingBuff->getPostInc();
-    }
-    std::cout << std::endl;
-
-    // edge case test: check if set read index as 0 and write index as n would make the container full.
-    pCRingBuff->reset();
-    pCRingBuff->setReadIdx(0);
-    pCRingBuff->setWriteIdx(kBlockSize);
-    for (int i = 0; i < 5; ++i) {
-        pCRingBuff->putPostInc(2.F * (i + 1));
-    }
-    for (int i = 0; i < 17; ++i) {
-        if (i) std::cout << ", ";
-        std::cout << pCRingBuff->getPostInc();
-    }
-    std::cout << std::endl;
-
-    // edge case test: check what would happen if we set index < 0 or index > kBlockSize
-    pCRingBuff->reset();
-    pCRingBuff->setReadIdx(-273);
-    pCRingBuff->setWriteIdx(kBlockSize + 14);
-
-    std::cout << "read index: " << pCRingBuff->getReadIdx() << ", write index: " << pCRingBuff->getWriteIdx() << std::endl;
-
-
-    // assignment 1: Comb Filter
-    
-    
     // all done
     return 0;
 
