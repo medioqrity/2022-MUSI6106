@@ -9,9 +9,7 @@ public:
     CCombFilterBase(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels);
     virtual ~CCombFilterBase();
 
-    virtual Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) {
-        return Error_t::kNotImplementedError;
-    }
+    virtual Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) = 0;
 
     // wrapper for setter and getter methods
     Error_t setParam(CCombFilterIf::FilterParam_t eParam, float fParamValue);
@@ -45,7 +43,7 @@ private:
 class FIRCombFilter : public CCombFilterBase {
 public:
     FIRCombFilter (float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels);
-    virtual ~FIRCombFilter();
+    virtual ~FIRCombFilter() = default;
 
     Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) override;
 };
@@ -53,7 +51,7 @@ public:
 class IIRCombFilter : public CCombFilterBase {
 public:
     IIRCombFilter (float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels);
-    virtual ~IIRCombFilter();
+    virtual ~IIRCombFilter() = default;
 
     Error_t process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) override;
 };

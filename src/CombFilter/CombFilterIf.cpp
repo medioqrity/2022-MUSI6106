@@ -66,6 +66,7 @@ Error_t CCombFilterIf::create (CCombFilterIf*& pCCombFilter)
 
 Error_t CCombFilterIf::destroy (CCombFilterIf*& pCCombFilter)
 {
+    pCCombFilter->reset();
     delete pCCombFilter;
     pCCombFilter = nullptr;
     return Error_t::kNoError;

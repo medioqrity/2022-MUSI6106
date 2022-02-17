@@ -63,16 +63,12 @@ Error_t CCombFilterBase::setParam(CCombFilterIf::FilterParam_t eParam, float fPa
     {
     case CCombFilterIf::kParamGain:
         return setGain(fParamValue);
-        break;
     case CCombFilterIf::kParamDelay:
         return setDelay(fParamValue);
-        break;
     case CCombFilterIf::kNumFilterParams:
-        return Error_t::kFunctionInvalidArgsError;
     default:
-        break;
+        return Error_t::kFunctionInvalidArgsError;
     }
-    return Error_t::kNoError;
 }
 
 /*
@@ -116,10 +112,6 @@ Error_t FIRCombFilter::process(float** ppfInputBuffer, float** ppfOutputBuffer, 
     return Error_t::kNoError;
 }
 
-FIRCombFilter::~FIRCombFilter() {
-
-}
-
 IIRCombFilter::IIRCombFilter(float fMaxDelayLengthInS, float fSampleRateInHz, int iNumChannels)
 	: CCombFilterBase(fMaxDelayLengthInS, fSampleRateInHz, iNumChannels) { }
 
@@ -133,6 +125,3 @@ Error_t IIRCombFilter::process(float** ppfInputBuffer, float** ppfOutputBuffer, 
     return Error_t::kNoError;
 }
 
-IIRCombFilter::~IIRCombFilter() {
-
-}
