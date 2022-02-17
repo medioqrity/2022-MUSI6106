@@ -24,6 +24,35 @@ typedef struct CombFilterArgs {
     std::string outputPath = "out.wav";
 } CombFilterArgs_t;
 
+void printUsage() {
+    std::printf("Usage: MUSI6106Exec.exe [option]\n\n");
+    std::printf("Options and arguments:\n");
+    std::printf("-t: The type of comb filter to use. There are two choices available: FIR or IIR.\n");
+    std::printf("    -t FIR: use FIR comb filter.\n");
+    std::printf("    -t IIR: use IIR comb filter.\n");
+    std::printf("-d: The length of delay in second.\n");
+    std::printf("    -d <delay>: set the delay time in second of the comb filter. For good comb effect this\n");
+    std::printf("                value should be around 0.001-0.01. The MAXIMUM possible delay length is 1s\n");
+    std::printf("-g: The gain parameter for the filter. \n");
+    std::printf("    -g <gain>: set the gain of the comb filter, which is similar to the amount of 'feedback'.\n");
+    std::printf("               The higher this value the 'sharper' the result is.\n");
+    std::printf("-i: The path to input wave file.\n");
+    std::printf("    -i <path>: load the wave file of <path>. Notice you need to include filename.\n");
+    std::printf("-o: The path to output wave file.\n");
+    std::printf("    -o <path>: write the filtered signal into <path>. Notice you need to include filename\n");
+    std::printf("-h --help: print this help message.\n");
+    std::printf("Examples:\n");
+    std::printf("- Read 'fake_id.wav' and filter it using a FIR comb filter, with delay time 0.001s and gain 0.9,\n");
+    std::printf("  write the filtered signal into 'out.wav':\n");
+    std::printf("  `MUSI6106Exec.exe -t FIR -d 0.001 -g 0.9 -i fake_id.wav -o out.wav`\n");
+    std::printf("- Run test:\n");
+    std::printf("  `MUSI6106Exec.exe`\n");
+    std::printf("- Display this help:\n");
+    std::printf("  `MUSI6106Exec.exe -h`\n");
+    std::printf("  or\n");
+    std::printf("  `MUSI6106Exec.exe --help`\n");
+}
+
 /*
 Simple command line argument parser.
 */
@@ -59,6 +88,10 @@ CombFilterArgs_t parseArg(int argc, char** argv) {
             else if (argv[i][1] == 'o') {
                 if (i == argc - 1) throw(std::exception("Incomplete argument of output file path!"));
                 result.outputPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'h' || !strcmp(argv[i], "--help")) {
+                printUsage();
+                exit(0);
             }
             else {
                 throw(std::exception("unknown argument!"));
@@ -421,7 +454,8 @@ int main(int argc, char* argv[]) {
         }
     }
     else {
-        std::printf("No argument given, run tests by default.\n");
+        printUsage();
+        std::printf("[WARN] No argument given, run tests by default.\n");
         runTests();
     }
     // all done
