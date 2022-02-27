@@ -126,7 +126,8 @@ long long int CAudioFileRaw::readDataIntern( float **ppfAudioData, long long int
     long long int iNumFrames        = 0;
 
     // sanity check
-    assert (ppfAudioData || ppfAudioData[0]);
+    assert(ppfAudioData);
+    assert (ppfAudioData[0]);
 
     // ugly hack
     // a) only for 16 bit input
@@ -171,7 +172,8 @@ long long int CAudioFileRaw::writeDataIntern( float **ppfAudioData, long long in
     int iNumChannels    = getNumChannels();
 
     // sanity check
-    assert (ppfAudioData || ppfAudioData[0]);
+    assert(ppfAudioData);
+    assert(ppfAudioData[0]);
 
     // very ugly hack
     // a) only for 16 bit output
@@ -400,7 +402,8 @@ long long int CAudioFileSndLib::readDataIntern( float **ppfAudioData, long long 
     long long int iNumFrames        = 0;
 
     // sanity check
-    assert (ppfAudioData || ppfAudioData[0]);
+    assert(ppfAudioData);
+    assert(ppfAudioData[0]);
 
     // use internal buffer with fixed length
     while (iNumFrames2Read > 0)
@@ -444,8 +447,9 @@ long long int CAudioFileSndLib::writeDataIntern( float **ppfAudioData, long long
     long long int iNumChannels    = getNumChannels();
 
     // sanity check
-    assert (ppfAudioData || ppfAudioData[0]);
- 
+    assert(ppfAudioData);
+    assert(ppfAudioData[0]);
+
     float afRange[2] = {std::numeric_limits<float>::min(), std::numeric_limits<float>::max()};
     if (isClippingEnabled())
     {

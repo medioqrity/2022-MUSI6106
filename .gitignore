@@ -67,3 +67,5 @@ CMakeSettings.json
 *.wav
 *.pkf
 out_
+2022-MUSI6106-cppcheck-build-dir
+/src/*.bak
