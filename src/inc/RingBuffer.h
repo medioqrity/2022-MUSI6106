@@ -106,12 +106,7 @@ public:
     */
     void setWriteIdx(int iNewWriteIdx)
     {
-        if (iNewWriteIdx < 0) {
-            m_iWriteIdx = m_iBuffLength - (-iNewWriteIdx % m_iBuffLength);
-        }
-        else {
-            m_iWriteIdx = iNewWriteIdx % m_iBuffLength;
-        }
+        m_iWriteIdx = indexWrapper(iNewWriteIdx);
     }
 
     /*! return the current index for reading/get
@@ -128,12 +123,7 @@ public:
     */
     void setReadIdx(int iNewReadIdx)
     {
-        if (iNewReadIdx < 0) {
-            m_iReadIdx = m_iBuffLength - (-iNewReadIdx % m_iBuffLength);
-        }
-        else {
-            m_iReadIdx = iNewReadIdx % m_iBuffLength;
-        }
+        m_iReadIdx = indexWrapper(iNewReadIdx);
     }
 
     /*! returns the number of values currently buffered (note: 0 could also mean the buffer is full!)
@@ -167,6 +157,10 @@ private:
 
     void incWriteIdx() {
         (++m_iWriteIdx) %= m_iBuffLength;
+    }
+
+    int indexWrapper(int index) {
+        return (index < 0) ? m_iBuffLength - (-index % m_iBuffLength) : index % m_iBuffLength;
     }
 };
 #endif // __RingBuffer_hdr__
