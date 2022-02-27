@@ -79,6 +79,32 @@ public:
     {
         return m_buffer[getReadIdx()];
     }
+
+    T get(int iOffset = 0) const {
+        return m_buffer[indexWrapper(getReadIdx() + iOffset)];
+    }
+
+    /*! return the value at the current read index
+     * \param fOffset: read at offset from read index
+     * \return float the value from the read index*/
+    T get(float fOffset = 0) const {
+
+        int lowerBound = indexWrapper(static_cast<int>(fOffset) + getReadIdx());
+        int upperBound = indexWrapper(lowerBound + 1);
+
+        // determine if the upper bound should be enlarged.
+        float fractionPart = fOffset % 1.F;
+
+        if (upperBound >= m_iBuffLength) {
+            throw std::exception("The input offset is too big and exceeds the buffer length.");
+        }
+
+        // interpolate between lower & upper bound
+        T fLowerBoundValue = get(indexWrapper(lowerBound));
+        T fUpperBoundValue = get(indexWrapper(upperBound));
+
+        return (1 - fractionPart) * fLowerBoundValue + fractionPart * fUpperBoundValue;
+    }
     
     /*! set buffer content and indices to 0
     \return void
@@ -152,14 +178,19 @@ private:
     int m_iReadIdx, m_iWriteIdx;
 
     void incReadIdx() {
-        (++m_iReadIdx) %= m_iBuffLength;
+        inc(m_iReadIdx);
     }
 
     void incWriteIdx() {
-        (++m_iWriteIdx) %= m_iBuffLength;
+        inc(m_iWriteIdx);
     }
 
-    int indexWrapper(int index) {
+    void inc(int& i) {
+        ++i;
+        if (i >= m_iBuffLength) i -= m_iBuffLength; // should be faster than modulo
+    }
+
+    inline int indexWrapper(int index) {
         return (index < 0) ? m_iBuffLength - (-index % m_iBuffLength) : index % m_iBuffLength;
     }
 };
