@@ -7,6 +7,7 @@
 #include "AudioFileIf.h"
 #include "CombFilterIf.h"
 #include "RingBuffer.h"
+#include "Vibrato.h"
 
 #define M_PIl          3.141592653589793238462643383279502884L /* pi */
 
@@ -24,29 +25,31 @@ typedef struct CombFilterArgs {
     std::string outputPath = "out.wav";
 } CombFilterArgs_t;
 
+typedef struct VibratoArgs {
+    CCombFilterIf::CombFilterType_t filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
+    float vibratoWidth = 10.F;
+    float vibratoFrequency = 1.F;
+    std::string inputPath = "fake_id.wav";
+    std::string outputPath = "out.wav";
+} VibratoArgs_t;
+
 void printUsage() {
     std::printf("Usage: MUSI6106Exec.exe [option]\n\n");
     std::printf("Options and arguments:\n");
-    std::printf("-t: The type of comb filter to use. There are two choices available: FIR or IIR.\n");
-    std::printf("    -t FIR: use FIR comb filter.\n");
-    std::printf("    -t IIR: use IIR comb filter.\n");
-    std::printf("-d: The length of delay in second.\n");
-    std::printf("    -d <delay>: set the delay time in second of the comb filter. For good comb effect this\n");
-    std::printf("                value should be around 0.001-0.01. The MAXIMUM possible delay length is 1s\n");
-    std::printf("-g: The gain parameter for the filter. \n");
-    std::printf("    -g <gain>: set the gain of the comb filter, which is similar to the amount of 'feedback'.\n");
-    std::printf("               The higher this value the 'sharper' the result is.\n");
+    std::printf("-w: The vibrato width in Hz.\n");
+    std::printf("    -w <width>: set the width of vibrato effector in Hz. E.g. for 440 sinusoid & 10 Hz vibrato\n");
+    std::printf("                width, it will oscillate in 430-450Hz.\n");
+    std::printf("-f: The vibrato frequency in Hz.\n");
+    std::printf("    -f <freq>: set the frequency of vibrato effector in Hz. E.g. Frequency 6Hz -> vibrato 6 times/s.\n");
     std::printf("-i: The path to input wave file.\n");
     std::printf("    -i <path>: load the wave file of <path>. Notice you need to include filename.\n");
     std::printf("-o: The path to output wave file.\n");
     std::printf("    -o <path>: write the filtered signal into <path>. Notice you need to include filename\n");
     std::printf("-h --help: print this help message.\n");
     std::printf("Examples:\n");
-    std::printf("- Read 'fake_id.wav' and filter it using a FIR comb filter, with delay time 0.001s and gain 0.9,\n");
+    std::printf("- Read 'fake_id.wav' and apply vibrato effector, with vibrato width=10Hz, frequency=6.6Hz,\n");
     std::printf("  write the filtered signal into 'out.wav':\n");
-    std::printf("  `MUSI6106Exec.exe -t FIR -d 0.001 -g 0.9 -i fake_id.wav -o out.wav`\n");
-    std::printf("- Run test:\n");
-    std::printf("  `MUSI6106Exec.exe`\n");
+    std::printf("  `MUSI6106Exec.exe -w 10 -f 6.6 -i fake_id.wav -o out.wav`\n");
     std::printf("- Display this help:\n");
     std::printf("  `MUSI6106Exec.exe -h`\n");
     std::printf("  or\n");
@@ -56,30 +59,17 @@ void printUsage() {
 /*
 Simple command line argument parser.
 */
-CombFilterArgs_t parseArg(int argc, char** argv) {
-    CombFilterArgs_t result;
+VibratoArgs_t parseArg(int argc, char** argv) {
+    VibratoArgs_t result;
     for (int i = 0; i < argc; ++i) {
         if (argv[i][0] == '-') { /* this is an argument */
-            if (argv[i][1] == 't') {
-                if (i == argc - 1) throw(std::exception("Incomplete argument of comb filter type!"));
-                ++i;
-                if (!strcmp(argv[i], "FIR")) { /* argv[i][1:] == "FIR" */
-                    result.filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
-                }
-                else if (!strcmp(argv[i], "IIR")) {
-                    result.filterType = CCombFilterIf::CombFilterType_t::kCombIIR;
-                }
-                else {
-                    throw(std::exception("unknown argument!"));
-                }
-            }
-            else if (argv[i][1] == 'd') {
+            if (argv[i][1] == 'w') {
                 if (i == argc - 1) throw(std::exception("Incomplete argument of delay!"));
-                result.delay = std::stof(argv[++i]);
+                result.vibratoWidth = std::stof(argv[++i]);
             }
-            else if (argv[i][1] == 'g') {
+            else if (argv[i][1] == 'f') {
                 if (i == argc - 1) throw(std::exception("Incomplete argument of gain!"));
-                result.gain = std::stof(argv[++i]);
+                result.vibratoFrequency = std::stof(argv[++i]);
             }
             else if (argv[i][1] == 'i') {
                 if (i == argc - 1) throw(std::exception("Incomplete argument of input file path!"));
@@ -101,7 +91,7 @@ CombFilterArgs_t parseArg(int argc, char** argv) {
     return result;
 }
 
-void processFile(CombFilterArgs_t& args) {
+void processFile(VibratoArgs_t& args) {
     static const int kBlockSize = 1024;
 
     clock_t time = 0;
@@ -120,12 +110,8 @@ void processFile(CombFilterArgs_t& args) {
     phInputAudioFile->getFileSpec(stInputFileSpec);
     phOutputAudioFile->openFile(args.outputPath, CAudioFileIf::FileIoType_t::kFileWrite, &stInputFileSpec);
 
-    /* Initialize combfilter */
-    CCombFilterIf* combFilterInterface = nullptr;
-    CCombFilterIf::create(combFilterInterface);
-    combFilterInterface->init(args.filterType, args.delay, stInputFileSpec.fSampleRateInHz, stInputFileSpec.iNumChannels);
-    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamDelay, args.delay);
-    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, args.gain);
+    /* Initialize Vibrato Effector */
+    VibratoEffector* vibratoEffector = new VibratoEffector(static_cast<int>(stInputFileSpec.fSampleRateInHz), args.vibratoFrequency, args.vibratoWidth);
 
     /* Initialize audio buffer arrays */
     long long kllBlockSize = static_cast<long long>(kBlockSize);
@@ -142,9 +128,9 @@ void processFile(CombFilterArgs_t& args) {
 
     /* Iterate over whole file and apply effect */
     phInputAudioFile->getLength(audioLengthInFrame);
-    for (long long pos = 0; pos < audioLengthInFrame; phInputAudioFile->getPosition(pos)) {
+    for (; !phInputAudioFile->isEof(); ) {
         phInputAudioFile->readData(ppfInputAudioData, kllBlockSize);
-        combFilterInterface->process(ppfInputAudioData, ppfOutputAudioData, kllBlockSize);
+        vibratoEffector->process(ppfInputAudioData, ppfOutputAudioData, kllBlockSize);
         phOutputAudioFile->writeData(ppfOutputAudioData, kllBlockSize);
     }
 
@@ -157,28 +143,10 @@ void processFile(CombFilterArgs_t& args) {
     }
     delete[] ppfInputAudioData;
     delete[] ppfOutputAudioData;
-    
-    CCombFilterIf::destroy(combFilterInterface);
 
+    delete vibratoEffector;
     CAudioFileIf::destroy(phInputAudioFile);
     CAudioFileIf::destroy(phOutputAudioFile);
-}
-
-
-void runTests() {
-    typedef bool (*fp)(); /* function pointer type */
-    fp testFunctions[] = {nullptr};
-
-    for (int i = 0; i < 0; ++i) {
-        fp testFunctionPointer = testFunctions[i];
-        if (testFunctionPointer()) {
-            std::printf("\033[32m[PASS]\033[39m");
-        }
-        else {
-            std::printf("\033[31m[FAIL]\033[39m");
-        }
-        std::printf(" Test %d\n", i + 1);
-    }
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -187,7 +155,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         /* First parse arguments, which is essential for audio file interface & combfilter initialization */
         try {
-            CombFilterArgs_t args = parseArg(argc, argv);
+            VibratoArgs_t args = parseArg(argc, argv);
             processFile(args);
         }
         catch (std::exception& e) {
@@ -196,8 +164,7 @@ int main(int argc, char* argv[]) {
     }
     else {
         printUsage();
-        std::printf("[WARN] No argument given, run tests by default.\n");
-        runTests();
+        std::printf("[WARN] No argument given.\n");
     }
     // all done
     return 0;
