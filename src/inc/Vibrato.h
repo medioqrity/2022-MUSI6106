@@ -2,6 +2,7 @@
 #define __Vibrato_hdr__
 
 #include "RingBuffer.h"
+#include "Lfo.h"
 #include "ErrorDef.h"
 
 class VibratoEffector {
@@ -21,6 +22,13 @@ public:
     \param fModulationWidthInHz the range of vibrato (e.g. +-50Hz)
     */
 	VibratoEffector(int iSampleRate, float fModulationFreqInHz, float fModulationWidthInHz);
+
+    /*! Vibrato effector destructor
+    \param iSampleRate integer sample rate (fs)
+    \param fModulationFreqInHz modulation LFO frequency
+    \param fModulationWidthInHz the range of vibrato (e.g. +-50Hz)
+    */
+    ~VibratoEffector();
 
     /*! sets a comb filter parameter
     \param eParam what parameter (see ::VibratoParam_t)
@@ -45,12 +53,24 @@ public:
 
 private:
 	int m_iSampleRate = 44100;
+    int m_iNumChannel = 2;
 	float m_fModulationFreqInHz = 0;
 	float m_fModulationWidthInHz = 0;
 
-	CRingBuffer<float>* m_buffer = nullptr;
+    Error_t setModulationFreq(float fModulationFreqInHz);
+    Error_t setModulationWidth(float fModulationWidthInHz);
 
-    /*! upate the buffer length with mod freq and mod width. We need both because they both contribute to delay length. The m_buffer will be initialized here.
+    float getModulationFreq() const;
+    float getModulationWidth() const;
+
+	CRingBuffer<float>* m_buffer = nullptr;
+    CLfo* m_lfo = nullptr;
+
+    /*! delete buffer pointer if it's not nullptr
+    */
+    void deleteBuffer();
+
+    /*! update the buffer length with mod freq and mod width. We need both because they both contribute to delay length. The m_buffer will be initialized here.
     */
 	void updateDelayBuffer();
 };

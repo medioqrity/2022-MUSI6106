@@ -11,26 +11,20 @@
 
 class CLfo {
 public:
-    CLfo();
-
-    virtual ~CLfo();
-
-    enum Param_t{
-        kAmplitude,
-        kFrequency,
-    };
-
-    Error_t init (float fSampleRateInHz, int iTableSize){
-        m_fSampleRate = fSampleRateInHz;
-        m_iTableSize = iTableSize;
+    CLfo(float fSampleRateInHz, int iTableSize)
+    : m_iSampleRate(fSampleRateInHz), m_iTableSize(iTableSize) {
         m_fCurrentIndex = 0.f;
         m_amplitude = 0.f;
         m_frequency = 0.f;
         m_pCRingBuffer = new CRingBuffer<float>(m_iTableSize);
-        return Error_t::kNoError;
     }
 
-    Error_t reset (){
+    virtual ~CLfo() {
+    }
+
+    enum Param_t{
+        kAmplitude,
+        kFrequency,
     };
 
     Error_t setParam (Param_t eParam, float fParamValue) {
@@ -65,9 +59,10 @@ public:
 
 private:
 
-    float m_fSampleRate, m_fCurrentIndex, m_amplitude, m_frequency;
+    float m_fCurrentIndex, m_amplitude, m_frequency;
 
-    int m_iTableSize;
+    int m_iSampleRate;
+    int m_iTableSize = 4096;
 
     CRingBuffer<float> *m_pCRingBuffer;
 
