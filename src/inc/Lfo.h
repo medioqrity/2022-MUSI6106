@@ -41,6 +41,8 @@ public:
             case Param_t::kFrequency:
                 m_frequency = fParamValue;
                 break;
+            default:
+                return Error_t::kFunctionInvalidArgsError;
         }
         return Error_t::kNoError;
     };
@@ -51,11 +53,15 @@ public:
                 return m_amplitude;
             case Param_t::kFrequency:
                 return m_frequency;
+            default:
+                break;
         }
         return -1.f;
     }
 
-    float process();
+    /*! returns the current lfo value
+    */
+    float get();
 
 private:
 
