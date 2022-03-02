@@ -114,7 +114,7 @@ Error_t VibratoEffector::process(float** ppfInputBuffer, float** ppfOutputBuffer
             m_buffer[i]->putPostInc(ppfInputBuffer[i][j]); // no need to move read index: it's already full and ringbuffer have overload protection, when full and insert, the read index will increase automatically.
             // ppfOutputBuffer[i][j] = m_lfo[i]->get();
             // ppfOutputBuffer[i][j] = m_buffer[i]->get(m_buffer[i]->getLength() - 1 - (m_lfo[i]->get() * fWidthInSamples + fWidthInSamples + 1.F));
-            // std::printf("%d %d %.5f\n", m_buffer[i]->getReadIdx(), m_buffer[i]->getWriteIdx(), m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples - fWidthInSamples);
+            std::printf("%d %d %.5f\n", m_buffer[i]->getReadIdx(), m_buffer[i]->getWriteIdx(), m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples);
             // ppfOutputBuffer[i][j] = m_buffer[i]->get(m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples);
             ppfOutputBuffer[i][j] = m_buffer[i]->get(m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples);
         }
