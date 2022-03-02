@@ -29,7 +29,7 @@ typedef struct VibratoArgs {
     CCombFilterIf::CombFilterType_t filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
     float vibratoWidth = 0.01F;
     float vibratoFrequency = 6.6F;
-    std::string inputPath = "fake_id.wav";
+    std::string inputPath = "sin.wav";
     std::string outputPath = "out.wav";
 } VibratoArgs_t;
 
