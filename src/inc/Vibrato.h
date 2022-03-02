@@ -56,6 +56,7 @@ private:
     int m_iNumChannel = 2;
 	float m_fModulationFreqInHz = 0;
 	float m_fModulationWidthInHz = 0;
+    float m_fDelayInSample = 0;
 
     Error_t setModulationFreq(float fModulationFreqInHz);
     Error_t setModulationWidth(float fModulationWidthInHz);

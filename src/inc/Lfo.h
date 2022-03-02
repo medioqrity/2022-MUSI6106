@@ -11,28 +11,28 @@
 
 class CLfo {
 public:
-    CLfo(float fSampleRateInHz, int iTableSize)
-    : m_iSampleRate(fSampleRateInHz), m_iTableSize(iTableSize) {
+    CLfo(int fSampleRateInHz, int iTableSize, float amplitude, float frequency)
+    : m_iSampleRate(fSampleRateInHz), m_iTableSize(iTableSize), m_amplitude(amplitude), m_frequency(frequency) {
         m_fCurrentIndex = 0.f;
-        m_amplitude = 0.f;
-        m_frequency = 0.f;
         m_pCRingBuffer = new CRingBuffer<float>(m_iTableSize);
+        m_pCRingBuffer->setReadIdx(0);
+        m_pCRingBuffer->setWriteIdx(m_iTableSize);
     }
 
     virtual ~CLfo() {
     }
 
-    enum Param_t{
+    enum class LfoParam_t{
         kAmplitude,
         kFrequency,
     };
 
-    Error_t setParam (Param_t eParam, float fParamValue) {
+    Error_t setParam (LfoParam_t eParam, float fParamValue) {
         switch (eParam) {
-            case Param_t::kAmplitude:
+            case LfoParam_t::kAmplitude:
                 m_amplitude = fParamValue;
                 break;
-            case Param_t::kFrequency:
+            case LfoParam_t::kFrequency:
                 m_frequency = fParamValue;
                 break;
             default:
@@ -41,11 +41,11 @@ public:
         return Error_t::kNoError;
     };
 
-    float getParam (Param_t eParam) const {
+    float getParam (LfoParam_t eParam) const {
         switch (eParam) {
-            case Param_t::kAmplitude:
+            case LfoParam_t::kAmplitude:
                 return m_amplitude;
-            case Param_t::kFrequency:
+            case LfoParam_t::kFrequency:
                 return m_frequency;
             default:
                 break;
@@ -55,7 +55,12 @@ public:
 
     /*! returns the current lfo value
     */
-    float get();
+    float get() {
+        float returnValue = m_fCurrentIndex;
+        m_fCurrentIndex += m_frequency / static_cast<float>(m_iSampleRate);
+        if (m_fCurrentIndex >= static_cast<float>(m_iTableSize)) m_fCurrentIndex -= m_iTableSize;
+        return returnValue;
+    }
 
 private:
 
@@ -65,8 +70,6 @@ private:
     int m_iTableSize = 4096;
 
     CRingBuffer<float> *m_pCRingBuffer;
-
-
 };
 
 #endif //MUSI6106_LFO_H

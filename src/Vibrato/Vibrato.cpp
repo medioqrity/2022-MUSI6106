@@ -5,7 +5,7 @@ VibratoEffector::VibratoEffector(int iSampleRate, float fModulationFreqInHz, flo
       m_fModulationFreqInHz(fModulationFreqInHz), 
       m_fModulationWidthInHz(fModulationWidthInHz) {
     updateDelayBuffer();
-    m_lfo = new CLfo(m_iSampleRate, 1 << 12); // TODO: how to determine the table size?
+    m_lfo = new CLfo(m_iSampleRate, 1 << 12, m_fModulationWidthInHz, m_fModulationFreqInHz); // TODO: how to determine the table size?
 }
 
 void VibratoEffector::deleteBuffer() {
@@ -21,12 +21,10 @@ VibratoEffector::~VibratoEffector() {
 
 void VibratoEffector::updateDelayBuffer() {
     deleteBuffer();
-    int iWidthInSample = m_fModulationWidthInHz / static_cast<float>(m_iSampleRate);
-    int iDelayInSample = iWidthInSample;
-    int iTotalDelayLength = 2 + iDelayInSample + (iWidthInSample << 1);
-    m_buffer = new CRingBuffer<float>(iTotalDelayLength);
+    m_fDelayInSample = m_fModulationWidthInHz * static_cast<float>(m_iSampleRate);
+    m_buffer = new CRingBuffer<float>(static_cast<int>(m_fDelayInSample));
     m_buffer->setReadIdx(0);
-    m_buffer->setWriteIdx(iTotalDelayLength);
+    m_buffer->setWriteIdx(static_cast<int>(m_fDelayInSample));
 }
 
 Error_t VibratoEffector::setParam(VibratoEffector::VibratoParam_t eParam, float fParamValue) {
@@ -75,10 +73,11 @@ float VibratoEffector::getModulationWidth() const {
 }
 
 Error_t VibratoEffector::process(float** ppfInputBuffer, float** ppfOutputBuffer, int iNumberOfFrames) {
+    float fWidthInSamples = m_fModulationWidthInHz * static_cast<float>(m_iSampleRate);
     for (int i = 0; i < m_iNumChannel; ++i) {
         for (int j = 0; j < iNumberOfFrames; ++j) {
             m_buffer->putPostInc(ppfInputBuffer[i][j]); // no need to move read index: it's already full and ringbuffer have overload protection, when full and insert, the read index will increase automatically.
-            ppfOutputBuffer[i][j] = m_buffer->get(m_lfo->get());
+            ppfOutputBuffer[i][j] = m_buffer->get(m_lfo->get() + fWidthInSamples + 1.F);
         }
     }
 }
