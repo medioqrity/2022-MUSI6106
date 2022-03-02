@@ -12,7 +12,7 @@
 class CLfo {
 public:
     CLfo(float fSampleRateInHz, int iTableSize)
-    : m_iSampleRate(fSampleRateInHz), m_iTableSize(iTableSize) {
+    : m_fSampleRate(fSampleRateInHz), m_iTableSize(iTableSize) {
         m_fCurrentIndex = 0.f;
         m_amplitude = 0.f;
         m_frequency = 0.f;
@@ -55,17 +55,29 @@ public:
 
     /*! returns the current lfo value
     */
-    float get();
+    float get(){
+        initWaveTable();
+        float fCurrentValue = m_pCRingBuffer->get(m_fCurrentIndex);
+        m_fCurrentIndex += m_frequency / m_fSampleRate * m_iTableSize;
+        return fCurrentValue;
+    };
 
 private:
 
-    float m_fCurrentIndex, m_amplitude, m_frequency;
+    float m_fCurrentIndex, m_amplitude, m_frequency, m_fSampleRate;
 
-    int m_iSampleRate;
     int m_iTableSize = 4096;
 
     CRingBuffer<float> *m_pCRingBuffer;
 
+    void initWaveTable()
+    {
+        auto *pfWavetable = new float [m_iTableSize];
+        CSynthesis::generateSine(pfWavetable,1, static_cast<float>(m_iTableSize), m_iTableSize,m_amplitude);
+        for(int i=0; i<m_iTableSize; i++) {
+            m_pCRingBuffer->put(pfWavetable[i]);
+        }
+    }
 
 };
 
