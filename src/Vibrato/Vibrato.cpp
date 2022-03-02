@@ -12,7 +12,7 @@ VibratoEffector::VibratoEffector(int iSampleRate, int iNumChannel, float fModula
 void VibratoEffector::updateDelayBuffer() {
     deleteBuffer();
     m_fDelayInSample = m_fModulationWidthInS * static_cast<float>(m_iSampleRate);
-    int iDelayInSample = static_cast<int>(ceil(m_fDelayInSample));
+    int iDelayInSample = static_cast<int>(ceil(m_fDelayInSample * 2));
 
     m_buffer = new CRingBuffer<float>*[m_iNumChannel];
     for (int i = 0; i < m_iNumChannel; ++i) {
@@ -114,7 +114,9 @@ Error_t VibratoEffector::process(float** ppfInputBuffer, float** ppfOutputBuffer
             m_buffer[i]->putPostInc(ppfInputBuffer[i][j]); // no need to move read index: it's already full and ringbuffer have overload protection, when full and insert, the read index will increase automatically.
             // ppfOutputBuffer[i][j] = m_lfo[i]->get();
             // ppfOutputBuffer[i][j] = m_buffer[i]->get(m_buffer[i]->getLength() - 1 - (m_lfo[i]->get() * fWidthInSamples + fWidthInSamples + 1.F));
-            ppfOutputBuffer[i][j] = m_buffer[i]->get(m_lfo[i]->get() * fWidthInSamples + fWidthInSamples + 1.F);
+            // std::printf("%d %d %.5f\n", m_buffer[i]->getReadIdx(), m_buffer[i]->getWriteIdx(), m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples - fWidthInSamples);
+            // ppfOutputBuffer[i][j] = m_buffer[i]->get(m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples);
+            ppfOutputBuffer[i][j] = m_buffer[i]->get(m_buffer[i]->getLength() - m_lfo[i]->get() * fWidthInSamples);
         }
     }
     return Error_t::kNoError;

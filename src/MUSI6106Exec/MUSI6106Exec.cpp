@@ -126,7 +126,7 @@ void processFile(VibratoArgs_t& args) {
 
     /* set lfo shape */
     float* temp = new float[1 << 12];
-    CSynthesis::generateSine(temp, 0, 1 << 12, 1 << 12);
+    CSynthesis::generateSine(temp, 1, 1 << 12, 1 << 12);
     vibratoEffector->setLfoShape(temp);
     delete[] temp;
 
