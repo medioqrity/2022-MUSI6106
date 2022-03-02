@@ -18,10 +18,11 @@ public:
 
     /*! Vibrato effector constructor
     \param iSampleRate integer sample rate (fs)
+    \param iNumChannel number of input channels
     \param fModulationFreqInHz modulation LFO frequency
     \param fModulationWidthInHz the range of vibrato (e.g. +-50Hz)
     */
-	VibratoEffector(int iSampleRate, float fModulationFreqInHz, float fModulationWidthInHz);
+	VibratoEffector(int iSampleRate, int iNumChannel, float fModulationFreqInHz, float fModulationWidthInHz);
 
     /*! Vibrato effector destructor
     \param iSampleRate integer sample rate (fs)
@@ -51,21 +52,34 @@ public:
     */
     Error_t process (float **ppfInputBuffer, float **ppfOutputBuffer, int iNumberOfFrames);
 
+    /*! set LFO shape
+    \param arr The array representing the wavetable. Notice there's no boundry check so might generate security issue.
+    */
+    void setLfoShape(float* arr) {
+        if (m_lfo != nullptr) {
+            for (int i = 0; i < m_iNumChannel; ++i) {
+                if (m_lfo[i] != nullptr) {
+                    m_lfo[i]->setWaveTable(arr);
+                }
+            }
+        }
+    }
+
 private:
 	int m_iSampleRate = 44100;
     int m_iNumChannel = 2;
 	float m_fModulationFreqInHz = 0;
-	float m_fModulationWidthInHz = 0;
+	float m_fModulationWidthInS = 0;
     float m_fDelayInSample = 0;
 
     Error_t setModulationFreq(float fModulationFreqInHz);
-    Error_t setModulationWidth(float fModulationWidthInHz);
+    Error_t setModulationWidth(float fModulationWidthInS);
 
     float getModulationFreq() const;
     float getModulationWidth() const;
 
-	CRingBuffer<float>* m_buffer = nullptr;
-    CLfo* m_lfo = nullptr;
+	CRingBuffer<float>** m_buffer = nullptr;
+    CLfo** m_lfo = nullptr;
 
     /*! delete buffer pointer if it's not nullptr
     */
@@ -74,6 +88,14 @@ private:
     /*! update the buffer length with mod freq and mod width. We need both because they both contribute to delay length. The m_buffer will be initialized here.
     */
 	void updateDelayBuffer();
+
+    /*! update information for lfo at each channel
+    */
+    void updateLfo();
+
+    /*! delete all existing lfos
+    */
+    void deleteLfo();
 };
 
 #endif // __Vibrato_hdr__

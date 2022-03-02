@@ -56,14 +56,27 @@ public:
     /*! returns the current lfo value
     */
     float get() {
-        float returnValue = m_fCurrentIndex;
+
+        float returnValue = m_pCRingBuffer->get(m_fCurrentIndex * m_iTableSize) * m_amplitude;
         m_fCurrentIndex += m_frequency / static_cast<float>(m_iSampleRate);
-        if (m_fCurrentIndex >= static_cast<float>(m_iTableSize)) m_fCurrentIndex -= m_iTableSize;
+        if (m_fCurrentIndex >= 1.F) m_fCurrentIndex -= 1.F;
         return returnValue;
+    }
+
+    /*! set internal wave table to be exactly the same as input array
+    \param arr the input array that contains wavetable information
+    */
+    Error_t setWaveTable(float* arr) {
+        m_pCRingBuffer->setWriteIdx(0);
+        for (int i = 0; i < m_iTableSize; ++i) {
+            m_pCRingBuffer->putPostInc(arr[i]);
+        }
+        return Error_t::kNoError;
     }
 
 private:
 
+    // m_fCurrentIndex should be in 0~1
     float m_fCurrentIndex, m_amplitude, m_frequency;
 
     int m_iSampleRate;

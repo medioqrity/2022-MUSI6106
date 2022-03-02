@@ -27,8 +27,8 @@ typedef struct CombFilterArgs {
 
 typedef struct VibratoArgs {
     CCombFilterIf::CombFilterType_t filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
-    float vibratoWidth = 10.F;
-    float vibratoFrequency = 1.F;
+    float vibratoWidth = 0.01F;
+    float vibratoFrequency = 6.6F;
     std::string inputPath = "fake_id.wav";
     std::string outputPath = "out.wav";
 } VibratoArgs_t;
@@ -111,7 +111,7 @@ void processFile(VibratoArgs_t& args) {
     phOutputAudioFile->openFile(args.outputPath, CAudioFileIf::FileIoType_t::kFileWrite, &stInputFileSpec);
 
     /* Initialize Vibrato Effector */
-    VibratoEffector* vibratoEffector = new VibratoEffector(static_cast<int>(stInputFileSpec.fSampleRateInHz), args.vibratoFrequency, args.vibratoWidth);
+    VibratoEffector* vibratoEffector = new VibratoEffector(static_cast<int>(stInputFileSpec.fSampleRateInHz), stInputFileSpec.iNumChannels, args.vibratoFrequency, args.vibratoWidth);
 
     /* Initialize audio buffer arrays */
     long long kllBlockSize = static_cast<long long>(kBlockSize);
@@ -124,10 +124,13 @@ void processFile(VibratoArgs_t& args) {
         ppfOutputAudioData[i] = new float[kllBlockSize];
     }
 
-    long long audioLengthInFrame = 0;
+    /* set lfo shape */
+    float* temp = new float[1 << 12];
+    CSynthesis::generateSine(temp, 0, 1 << 12, 1 << 12);
+    vibratoEffector->setLfoShape(temp);
+    delete[] temp;
 
     /* Iterate over whole file and apply effect */
-    phInputAudioFile->getLength(audioLengthInFrame);
     for (; !phInputAudioFile->isEof(); ) {
         phInputAudioFile->readData(ppfInputAudioData, kllBlockSize);
         vibratoEffector->process(ppfInputAudioData, ppfOutputAudioData, kllBlockSize);
