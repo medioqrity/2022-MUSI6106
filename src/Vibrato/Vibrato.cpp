@@ -64,7 +64,7 @@ Error_t VibratoEffector::setParam(VibratoEffector::VibratoParam_t eParam, float 
     {
     case VibratoEffector::VibratoParam_t::kModulationFreq:
         return setModulationFreq(fParamValue);
-    case VibratoEffector::VibratoParam_t::KModulationWidth:
+    case VibratoEffector::VibratoParam_t::kModulationWidth:
         return setModulationWidth(fParamValue);
     default:
         return Error_t::kFunctionInvalidArgsError;
@@ -77,7 +77,7 @@ float VibratoEffector::getParam(VibratoEffector::VibratoParam_t eParam) const {
     {
     case VibratoEffector::VibratoParam_t::kModulationFreq:
         return getModulationFreq();
-    case VibratoEffector::VibratoParam_t::KModulationWidth:
+    case VibratoEffector::VibratoParam_t::kModulationWidth:
         return getModulationWidth();
     default:
         return -1;
