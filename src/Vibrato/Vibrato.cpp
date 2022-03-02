@@ -61,7 +61,7 @@ Error_t VibratoEffector::setModulationWidth(float fModulationWidthInHz) {
 
 Error_t VibratoEffector::setModulationFreq(float fModulationFreqInHz) {
     m_fModulationFreqInHz = fModulationFreqInHz;
-    m_lfo->setParam(CLfo::Param_t::kFrequency, m_fModulationFreqInHz);
+    return m_lfo->setParam(CLfo::LfoParam_t::kFrequency, m_fModulationFreqInHz);
 }
 
 float VibratoEffector::getModulationFreq() const {
@@ -80,5 +80,6 @@ Error_t VibratoEffector::process(float** ppfInputBuffer, float** ppfOutputBuffer
             ppfOutputBuffer[i][j] = m_buffer->get(m_lfo->get() + fWidthInSamples + 1.F);
         }
     }
+    return Error_t::kNoError;
 }
 
