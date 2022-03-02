@@ -11,7 +11,7 @@ public:
     enum class VibratoParam_t
     {
         kModulationFreq,           //!< finite impulse response filter
-        KModulationWidth,           //!< infinite impulse response filter
+        kModulationWidth,           //!< infinite impulse response filter
 
         kNumVibratoParam
     };
