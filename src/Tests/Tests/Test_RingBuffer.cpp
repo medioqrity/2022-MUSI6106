@@ -25,8 +25,8 @@ namespace ringBuffer_test {
     protected:
         void SetUp() override
         {
-            m_pRingBuffer = new CRingBuffer<float> (m_iBufferLength);
             m_iBufferLength = 20;
+            m_pRingBuffer = new CRingBuffer<float> (m_iBufferLength);
             m_pfInput = 0;
             m_pfOutput = 0;
             m_iLength = 100;
@@ -67,9 +67,12 @@ namespace ringBuffer_test {
     }
 
     TEST_F(RingBufferTest, zeroGet){
-        EXPECT_EQ(m_pRingBuffer->get(0.F),m_pRingBuffer->get(0));
-        EXPECT_EQ(m_pRingBuffer->get(0),m_pRingBuffer->get());
-        EXPECT_EQ(m_pRingBuffer->get(0.F),m_pRingBuffer->get());
+        for (int i = 0; i < 114514; ++i) {
+            EXPECT_EQ(m_pRingBuffer->get(0.F),m_pRingBuffer->get(0));
+            EXPECT_EQ(m_pRingBuffer->get(0),m_pRingBuffer->get());
+            EXPECT_EQ(m_pRingBuffer->get(0.F),m_pRingBuffer->get());
+            m_pRingBuffer->putPostInc(m_pRingBuffer->getPostInc());
+        }
     }
 
     TEST_F(RingBufferTest, overflow){
