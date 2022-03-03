@@ -12,7 +12,6 @@ namespace vibrato_test {
     {
         for (int i = 0; i < iLength; i++)
         {
-            // std::printf("%d: %.6f %.6f\n", i, buffer1[i], buffer2[i]);
             EXPECT_NEAR(buffer1[i], buffer2[i], fTolerance);
         }
     }
@@ -62,7 +61,6 @@ namespace vibrato_test {
 
         void process ()
         {
-            std::printf("%d\n", m_iLength);
             int iNumRemainingFrames = m_iLength;
             // put data
             while (iNumRemainingFrames > 0)
@@ -94,7 +92,6 @@ namespace vibrato_test {
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0);
         process();
         for (int i=0; i<m_iNumChannels; i++){
-            int delay = static_cast<int>(round(m_fModulationWidth * static_cast<float>(m_iSampleRate)));
             CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
         }
     }
