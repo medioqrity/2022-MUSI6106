@@ -1,3 +1,19 @@
+/*
+Design of choice
+
+We eventually decide not to follow the classic interface-abstract class-implementation structure.
+
+Without interface, the implementation details are exposed, and users have extra work to adapt this specific class.
+
+But the class name suffix Effector indicates that it's an implementation of superclass Effector. Eventually this superclass will become something like juce::AudioProcessor, and natually supports composite mode.
+
+Then, we can design and build more powerful interfaces, including EffectorFactory, EffectorTreePreset, etc. We can of course add create, destroy, init, or reset in higher level definition.
+
+Now there's only one file here for vibrato. Unless we add combfilter into the whole code base and use the same logic to initialize, otherwise there's no need to add tedious functions and make users feel hard to use.
+
+We may include comb filters into the new design though, as their implementation has been merged into this branch.
+*/
+
 #if !defined(__Vibrato_hdr__)
 #define __Vibrato_hdr__
 
