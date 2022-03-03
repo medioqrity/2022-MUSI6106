@@ -12,6 +12,7 @@ namespace vibrato_test {
     {
         for (int i = 0; i < iLength; i++)
         {
+            // std::printf("%d: %.6f %.6f\n", i, buffer1[i], buffer2[i]);
             EXPECT_NEAR(buffer1[i], buffer2[i], fTolerance);
         }
     }
@@ -24,7 +25,7 @@ namespace vibrato_test {
             m_pVibrato = 0;
             m_ppfInput = 0;
             m_ppfOutput = 0;
-            m_iLength = 0;
+            m_iLength = 1<<16;
             m_iNumChannels = 2;
             m_iBlockLength = 1024;
             m_iSampleRate = 44100;
@@ -61,6 +62,7 @@ namespace vibrato_test {
 
         void process ()
         {
+            std::printf("%d\n", m_iLength);
             int iNumRemainingFrames = m_iLength;
             // put data
             while (iNumRemainingFrames > 0)
@@ -93,26 +95,26 @@ namespace vibrato_test {
         process();
         for (int i=0; i<m_iNumChannels; i++){
             int delay = static_cast<int>(round(m_fModulationWidth * static_cast<float>(m_iSampleRate)));
-            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i]+delay+1, m_iLength,1e-3);
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
         }
     }
 
     TEST_F(VibratoTest, DCInOut){
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
+        int delay = m_iSampleRate / 2;
         for (int i=0; i<m_iNumChannels; i++){
-            CSynthesis::generateDc(m_ppfOutput[i], m_iLength, 0.5);
+            CSynthesis::generateDc(m_ppfInput[i], m_iLength, 0.5);
         }
         process();
         for (int i=0; i<m_iNumChannels; i++){
-            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i] + delay, m_iLength - delay,1e-3);
         }
     }
 
     TEST_F(VibratoTest, varyingBlockSize){
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
-        process();
         //TODO: reset and change BlockSize
     }
 
