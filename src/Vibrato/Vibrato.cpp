@@ -126,3 +126,10 @@ Error_t VibratoEffector::process(float** ppfInputBuffer, float** ppfOutputBuffer
     return Error_t::kNoError;
 }
 
+void VibratoEffector::reset() {
+    for (int i = 0; i < m_iNumChannel; ++i) {
+        m_buffer[i]->reset();
+        m_lfo[i]->reset();
+    }
+}
+

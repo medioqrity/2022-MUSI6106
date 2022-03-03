@@ -52,6 +52,8 @@ public:
     */
     Error_t process (float **ppfInputBuffer, float **ppfOutputBuffer, int iNumberOfFrames);
 
+    void reset();
+
     /*! set LFO shape
     \param arr The array representing the wavetable. Notice there's no boundry check so might generate security issue.
     */

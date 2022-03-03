@@ -1,3 +1,7 @@
+#include <chrono>
+#include <random>
+#include <algorithm>
+
 #include "MUSI6106Config.h"
 
 #ifdef WITH_TESTS
@@ -112,7 +116,42 @@ namespace vibrato_test {
     TEST_F(VibratoTest, varyingBlockSize){
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
-        //TODO: reset and change BlockSize
+
+        for (int i=0; i<m_iNumChannels; i++){
+            CSynthesis::generateSaw(m_ppfInput[i], 441, 44100, m_iLength);
+        }
+
+        // use Mersenne Twister pseudo-random generator to generate safe & high quality random numbers
+        std::mt19937 generator(std::chrono::steady_clock::now().time_since_epoch().count());
+        int maxBlockSize = m_iLength >> 3;
+        for (int offset = 0, blockSize; offset < m_iLength; offset += blockSize) {
+            blockSize = std::min(static_cast<int>(generator() % maxBlockSize), m_iLength - offset);
+            std::printf("Accumulated offset: %d. Current block size: %d.\n", offset, blockSize);
+            
+            for (int i = 0; i < m_iNumChannels; i++)
+            {
+                m_ppfInputTmp[i] = m_ppfInput[i] + offset;
+                m_ppfOutputTmp[i] = m_ppfOutput[i] + offset;
+            }
+            m_pVibrato->process(m_ppfInputTmp, m_ppfOutputTmp, blockSize);
+        }
+
+        // WHOLE BLOCK PROCESS!
+        m_pVibrato->reset();
+        float** m_ppfOutputRef = new float* [m_iNumChannels];
+        for (int i = 0; i < m_iNumChannels; ++i) {
+            m_ppfOutputRef[i] = new float[m_iLength];
+        }
+        m_pVibrato->process(m_ppfInput, m_ppfOutputRef, m_iLength);
+
+        for (int i=0; i<m_iNumChannels; i++){
+            CHECK_ARRAY_CLOSE(m_ppfOutput[i], m_ppfOutputRef[i], m_iLength, 1e-8);
+        }
+
+        for (int i = 0; i < m_iNumChannels; ++i) {
+            delete[] m_ppfOutputRef[i];
+        }
+        delete[] m_ppfOutputRef;
     }
 
     TEST_F(VibratoTest, zeroInput){

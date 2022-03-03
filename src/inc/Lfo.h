@@ -74,6 +74,10 @@ public:
         return Error_t::kNoError;
     }
 
+    void reset() {
+        m_fCurrentIndex = 0.F;
+    }
+
 private:
 
     // m_fCurrentIndex should be in 0~1
