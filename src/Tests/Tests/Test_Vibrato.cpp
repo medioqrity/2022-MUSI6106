@@ -16,6 +16,17 @@ namespace vibrato_test {
         }
     }
 
+    class VibratoTest : public testing::Test
+    {
+    protected:
+        void SetUp() override
+        {
+            m_pVibrato = 0;
+            m_ppfInput = 0;
+            m_ppfOutput = 0;
+            m_iLength = 0;
+            m_iBlockLength = 1024;
+
 }
 
 #endif //WITH_TESTS
