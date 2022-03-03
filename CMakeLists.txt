@@ -62,6 +62,8 @@ if (WITH_TESTS)
     # add tests here
     add_test(AudioIo ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/TestExec --gtest_filter=AudioIo* "${CMAKE_SOURCE_DIR}/src/Tests/TestData/")
     add_test(Vibrato ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/TestExec --gtest_filter=Vibrato*)
+	add_test(Vibrato ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/TestExec --gtest_filter=RingBuffer*)
+
 endif (WITH_TESTS)
 
 #######################################################################################################
