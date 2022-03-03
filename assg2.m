@@ -1,14 +1,14 @@
-[x, Fs]=audioread("fake_id.wav");
+[x, Fs]=audioread("bin\Debug\sin.wav");
 
-freq = 1.15;
-width = 0.005;
+freq = 20;
+width = 0.002;
 
 fig_title = "vibrato width=" + width + "s, vibrato frequency=" + freq + "Hz";
 
 y = vibrato(x, Fs, freq, width);
 
 dt = 1/Fs;
-r = min(length(y),150000);
+r = min(length(y),50000);
 t = 0:dt:(r*dt)-dt;
 subplot(4,1,1);
 plot(t,y(1:r,1));
