@@ -16,6 +16,118 @@ namespace vibrato_test {
         }
     }
 
+    class VibratoTest : public testing::Test
+    {
+    protected:
+        void SetUp() override
+        {
+            m_pVibrato = 0;
+            m_ppfInput = 0;
+            m_ppfOutput = 0;
+            m_iLength = 0;
+            m_iNumChannels = 2;
+            m_iBlockLength = 1024;
+            m_iSampleRate = 44100;
+            m_fModulationFreq = 0;
+            m_fModulationWidth = 0;
+            m_pVibrato = new VibratoEffector(m_iSampleRate, m_iNumChannels, m_fModulationFreq, m_fModulationWidth);
+            m_ppfInput = new float*[m_iNumChannels];
+            m_ppfOutput = new float*[m_iNumChannels];
+            m_ppfInputTmp = new float*[m_iNumChannels];
+            m_ppfOutputTmp = new float*[m_iNumChannels];
+            for (int i = 0; i < m_iNumChannels; i++)
+            {
+                m_ppfInput[i] = new float [m_iLength];
+                CSynthesis::generateSine(m_ppfInput[i], 441.F, m_iSampleRate, m_iLength, .6F);
+                m_ppfOutput[i] = new float [m_iLength];
+                for (int j = 0; j < m_iLength; j++){
+                    m_ppfOutput[i][j] = 0;
+                }
+            }
+        }
+
+        virtual void TearDown()
+        {
+            for (int i = 0; i < m_iNumChannels; i++){
+                delete[] m_ppfInput[i];
+                delete[] m_ppfOutput[i];
+            }
+            delete [] m_ppfOutputTmp;
+            delete [] m_ppfInputTmp;
+            delete [] m_ppfOutput;
+            delete [] m_ppfInput;
+            delete m_pVibrato;
+        }
+
+        void process ()
+        {
+            int iNumRemainingFrames = m_iLength;
+            // put data
+            while (iNumRemainingFrames > 0)
+            {
+                for (int i = 0; i < m_iNumChannels; i++)
+                {
+                    m_ppfInputTmp[i] = &m_ppfInput[i][m_iLength - iNumRemainingFrames];
+                    m_ppfOutputTmp[i] = &m_ppfOutput[i][m_iLength - iNumRemainingFrames];
+                }
+                int iPutFrames = std::min(m_iBlockLength, iNumRemainingFrames);
+                m_pVibrato->process(m_ppfInputTmp, m_ppfOutputTmp, iPutFrames);
+                iNumRemainingFrames -= iPutFrames;
+            }
+        }
+
+        VibratoEffector *m_pVibrato;
+        float **m_ppfInput, **m_ppfOutput, **m_ppfInputTmp, **m_ppfOutputTmp;
+        float m_fModulationWidth, m_fModulationFreq;
+        int m_iLength, m_iBlockLength, m_iNumChannels, m_iSampleRate;
+    };
+
+    TEST_F(VibratoTest, setParam){
+        // TODO: check negative Freq works
+        // TODO: check negative Width works
+    }
+
+    TEST_F(VibratoTest, zeroModAmp){
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0);
+        process();
+        for (int i=0; i<m_iNumChannels; i++){
+            int delay = static_cast<int>(round(m_fModulationWidth * static_cast<float>(m_iSampleRate)));
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i]+delay+1, m_iLength,1e-3);
+        }
+    }
+
+    TEST_F(VibratoTest, DCInOut){
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
+        for (int i=0; i<m_iNumChannels; i++){
+            CSynthesis::generateDc(m_ppfOutput[i], m_iLength, 0.5);
+        }
+        process();
+        for (int i=0; i<m_iNumChannels; i++){
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
+        }
+    }
+
+    TEST_F(VibratoTest, varyingBlockSize){
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
+        process();
+        //TODO: reset and change BlockSize
+    }
+
+    TEST_F(VibratoTest, zeroInput){
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 2);
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
+        for (int i=0; i<m_iNumChannels; i++){
+            CSynthesis::generateDc(m_ppfInput[i], m_iLength, 0);
+        }
+        process();
+        for (int i=0; i<m_iNumChannels; i++){
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
+        }
+    }
+
 }
 
 #endif //WITH_TESTS
