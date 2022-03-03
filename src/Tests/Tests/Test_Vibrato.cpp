@@ -24,7 +24,7 @@ namespace vibrato_test {
             m_pVibrato = 0;
             m_ppfInput = 0;
             m_ppfOutput = 0;
-            m_iLength = 0;
+            m_iLength = 1000;
             m_iNumChannels = 2;
             m_iBlockLength = 1024;
             m_iSampleRate = 44100;
