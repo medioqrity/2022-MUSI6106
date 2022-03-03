@@ -93,7 +93,7 @@ namespace vibrato_test {
         process();
         for (int i=0; i<m_iNumChannels; i++){
             int delay = static_cast<int>(round(m_fModulationWidth * static_cast<float>(m_iSampleRate)));
-            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i]+delay+1, m_iLength,1e-3);
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i]+delay, m_iLength-delay,1e-3);
         }
     }
 
