@@ -120,7 +120,7 @@ Error_t VibratoEffector::process(float** ppfInputBuffer, float** ppfOutputBuffer
         for (int j = 0; j < iNumberOfFrames; ++j) {
             m_buffer[i]->getPostInc();
             m_buffer[i]->putPostInc(ppfInputBuffer[i][j]);
-            ppfOutputBuffer[i][j] = m_buffer[i]->get(m_lfo[i]->get() * WIDTH + DELAY + 1);
+            ppfOutputBuffer[i][j] = m_buffer[i]->get(L - (m_lfo[i]->get() * WIDTH + DELAY + 1));
         }
     }
     return Error_t::kNoError;
