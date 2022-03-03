@@ -96,7 +96,7 @@ namespace vibrato_test {
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0);
         process();
         for (int i=0; i<m_iNumChannels; i++){
-            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-8);
         }
     }
 
@@ -109,7 +109,7 @@ namespace vibrato_test {
         }
         process();
         for (int i=0; i<m_iNumChannels; i++){
-            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i] + delay, m_iLength - delay,1e-3);
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i] + delay, m_iLength - delay,1e-8);
         }
     }
 
@@ -162,7 +162,7 @@ namespace vibrato_test {
         }
         process();
         for (int i=0; i<m_iNumChannels; i++){
-            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-3);
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-8);
         }
     }
 
