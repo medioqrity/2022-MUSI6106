@@ -128,7 +128,7 @@ namespace vibrato_test {
         for (int offset = 0, blockSize; offset < m_iLength; offset += blockSize) {
             blockSize = std::min(static_cast<int>(generator() % maxBlockSize), m_iLength - offset);
             std::printf("Accumulated offset: %d. Current block size: %d.\n", offset, blockSize);
-            
+
             for (int i = 0; i < m_iNumChannels; i++)
             {
                 m_ppfInputTmp[i] = m_ppfInput[i] + offset;
@@ -160,6 +160,18 @@ namespace vibrato_test {
         m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0.5);
         for (int i=0; i<m_iNumChannels; i++){
             CSynthesis::generateDc(m_ppfInput[i], m_iLength, 0);
+        }
+        process();
+        for (int i=0; i<m_iNumChannels; i++){
+            CHECK_ARRAY_CLOSE(m_ppfInput[i], m_ppfOutput[i], m_iLength,1e-8);
+        }
+    }
+
+    TEST_F(VibratoTest, zeroModFreq){
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationFreq, 0);
+        m_pVibrato->setParam(VibratoEffector::VibratoParam_t::kModulationWidth, 0);
+        for (int i=0; i<m_iNumChannels; i++){
+            CSynthesis::generateNoise(m_ppfInput[i], m_iLength);
         }
         process();
         for (int i=0; i<m_iNumChannels; i++){
