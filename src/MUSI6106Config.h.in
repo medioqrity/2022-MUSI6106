@@ -29,4 +29,7 @@
 #define MUSI6106_VERSION_MINOR ${PROJECT_VERSION_MINOR}
 #define MUSI6106_VERSION_PATCH ${PROJECT_VERSION_PATCH}
 
+// for testing only
+#define CMAKE_SOURCE_DIR "@CMAKE_SOURCE_DIR@"
+
 #endif // __MigEdit_config_hdr__

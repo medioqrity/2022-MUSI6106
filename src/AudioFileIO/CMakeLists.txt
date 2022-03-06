@@ -25,13 +25,3 @@ set_target_properties(${CurrLib} PROPERTIES OUTPUT_NAME "${CurrLib}")
 set_target_properties(${CurrLib} PROPERTIES PREFIX "lib")
 
 target_link_libraries(${CurrLib} sndlib)
-
-if (WITH_CPPCHECKTARGET)
-	# cppcheck target in the IDE
-	file(GLOB to_remove RELATIVE ${CMAKE_SOURCE_DIR}/src/${CurrLib} *.txt)
-	list(REMOVE_ITEM ${CurrLib}_SOURCES ${to_remove})
-	include (GenerateCppcheck)
-	GENERATE_CPPCHECK(SOURCES ${${CurrLib}_SOURCES}
-						TARGET_NAME "CppCheck_${CurrLib}"
-					  INCLUDES ${PROJECT_INCLUDES})
-endif(WITH_CPPCHECKTARGET)

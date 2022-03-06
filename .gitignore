@@ -51,6 +51,7 @@ bld
 /3rdparty/sndlib/autom4te.cache/requests
 /3rdparty/sndlib/autom4te.cache/traces.0
 /3rdparty/sndlib/autom4te.cache/traces.1
+/cmake.modules/*.bak
 /.vs/MUSI 6106/v17
 .vs/VSWorkspaceState.json
 .vs/slnx.sqlite
@@ -62,3 +63,11 @@ bld
 .vs/*
 out/*
 CMakeSettings.json
+
+*.wav
+*.pkf
+out_
+2022-MUSI6106-cppcheck-build-dir
+/src/*.bak
+
+cmake-build-debug/*
