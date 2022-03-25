@@ -5,6 +5,10 @@
 #include "MUSI6106Config.h"
 
 #include "AudioFileIf.h"
+#include "CombFilterIf.h"
+#include "RingBuffer.h"
+
+#define M_PIl          3.141592653589793238462643383279502884L /* pi */
 
 using std::cout;
 using std::endl;
@@ -12,88 +16,450 @@ using std::endl;
 // local function declarations
 void    showClInfo ();
 
-/////////////////////////////////////////////////////////////////////////////////
-// main function
-int main(int argc, char* argv[])
-{
-    std::string             sInputFilePath,                 //!< file paths
-                            sOutputFilePath;
+typedef struct CombFilterArgs {
+    CCombFilterIf::CombFilterType_t filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
+    float delay = 0.1F;
+    float gain = 0.5F;
+    std::string inputPath = "fake_id.wav";
+    std::string outputPath = "out.wav";
+} CombFilterArgs_t;
 
-    static const int        kBlockSize = 1024;
+void printUsage() {
+    std::printf("Usage: MUSI6106Exec.exe [option]\n\n");
+    std::printf("Options and arguments:\n");
+    std::printf("-t: The type of comb filter to use. There are two choices available: FIR or IIR.\n");
+    std::printf("    -t FIR: use FIR comb filter.\n");
+    std::printf("    -t IIR: use IIR comb filter.\n");
+    std::printf("-d: The length of delay in second.\n");
+    std::printf("    -d <delay>: set the delay time in second of the comb filter. For good comb effect this\n");
+    std::printf("                value should be around 0.001-0.01. The MAXIMUM possible delay length is 1s\n");
+    std::printf("-g: The gain parameter for the filter. \n");
+    std::printf("    -g <gain>: set the gain of the comb filter, which is similar to the amount of 'feedback'.\n");
+    std::printf("               The higher this value the 'sharper' the result is.\n");
+    std::printf("-i: The path to input wave file.\n");
+    std::printf("    -i <path>: load the wave file of <path>. Notice you need to include filename.\n");
+    std::printf("-o: The path to output wave file.\n");
+    std::printf("    -o <path>: write the filtered signal into <path>. Notice you need to include filename\n");
+    std::printf("-h --help: print this help message.\n");
+    std::printf("Examples:\n");
+    std::printf("- Read 'fake_id.wav' and filter it using a FIR comb filter, with delay time 0.001s and gain 0.9,\n");
+    std::printf("  write the filtered signal into 'out.wav':\n");
+    std::printf("  `MUSI6106Exec.exe -t FIR -d 0.001 -g 0.9 -i fake_id.wav -o out.wav`\n");
+    std::printf("- Run test:\n");
+    std::printf("  `MUSI6106Exec.exe`\n");
+    std::printf("- Display this help:\n");
+    std::printf("  `MUSI6106Exec.exe -h`\n");
+    std::printf("  or\n");
+    std::printf("  `MUSI6106Exec.exe --help`\n");
+}
 
-    clock_t                 time = 0;
-
-    float                   **ppfAudioData = 0;
-
-    CAudioFileIf            *phAudioFile = 0;
-    std::fstream            hOutputFile;
-    CAudioFileIf::FileSpec_t stFileSpec;
-
-    showClInfo();
-
-    //////////////////////////////////////////////////////////////////////////////
-    // parse command line arguments
-    if (argc == 3) {
-        sInputFilePath = std::string(argv[1]);
-        sOutputFilePath = std::string(argv[2]);
-    }
-    else {
-        return 0;
-    }
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // open the input wave file
-    CAudioFileIf::create(phAudioFile);
-    Error_t inputFileOpenStatus = phAudioFile->openFile(sInputFilePath, CAudioFileIf::FileIoType_t::kFileRead);
-    if (inputFileOpenStatus != Error_t::kNoError) {
-        throw inputFileOpenStatus;
-    }
-    phAudioFile->getFileSpec(stFileSpec);
-    const int kNumChannel = stFileSpec.iNumChannels;
-    const int kFs = stFileSpec.fSampleRateInHz;
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // open the output text file
-    // std::ofstream hOutputFile(sOutputFilePath, std::ios::binary);
-    hOutputFile = std::fstream(sOutputFilePath, std::ios::binary | std::ios::out);
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // allocate memory
-    long long audioLengthInFrame = 0;
-    phAudioFile->getLength(audioLengthInFrame);
-    ppfAudioData = new float*[kNumChannel];
-    for (int i = 0; i < kNumChannel; ++i) {
-        ppfAudioData[i] = new float[kBlockSize];
-    }
- 
-    //////////////////////////////////////////////////////////////////////////////
-    // get audio data and write it to the output text file (one column per channel)
-    long long kllBlockSize = static_cast<long long>(kBlockSize);
-    for (long long pos = 0; pos < audioLengthInFrame; phAudioFile->getPosition(pos)) {
-        phAudioFile->readData(ppfAudioData, kllBlockSize);
-        for (long long i = 0; i < kllBlockSize; ++i) {
-            for (int j = 0; j < kNumChannel; ++j) {
-                if (j) hOutputFile << " ";
-                hOutputFile << ppfAudioData[j][i];
+/*
+Simple command line argument parser.
+*/
+CombFilterArgs_t parseArg(int argc, char** argv) {
+    CombFilterArgs_t result;
+    for (int i = 0; i < argc; ++i) {
+        if (argv[i][0] == '-') { /* this is an argument */
+            if (argv[i][1] == 't') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of comb filter type!"));
+                ++i;
+                if (!strcmp(argv[i], "FIR")) { /* argv[i][1:] == "FIR" */
+                    result.filterType = CCombFilterIf::CombFilterType_t::kCombFIR;
+                }
+                else if (!strcmp(argv[i], "IIR")) {
+                    result.filterType = CCombFilterIf::CombFilterType_t::kCombIIR;
+                }
+                else {
+                    throw(std::exception("unknown argument!"));
+                }
             }
-            hOutputFile << std::endl;
+            else if (argv[i][1] == 'd') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of delay!"));
+                result.delay = std::stof(argv[++i]);
+            }
+            else if (argv[i][1] == 'g') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of gain!"));
+                result.gain = std::stof(argv[++i]);
+            }
+            else if (argv[i][1] == 'i') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of input file path!"));
+                result.inputPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'o') {
+                if (i == argc - 1) throw(std::exception("Incomplete argument of output file path!"));
+                result.outputPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'h' || !strcmp(argv[i], "--help")) {
+                printUsage();
+                exit(0);
+            }
+            else {
+                throw(std::exception("unknown argument!"));
+            }
         }
     }
+    return result;
+}
 
-    //////////////////////////////////////////////////////////////////////////////
-    // clean-up (close files and free memory)
-    hOutputFile.close();
-    phAudioFile->closeFile();
-    CAudioFileIf::destroy(phAudioFile);
+void processFile(CombFilterArgs_t& args) {
+    static const int kBlockSize = 1024;
 
-    for (int i = 0; i < kNumChannel; ++i) {
-        delete [] ppfAudioData[i];
+    clock_t time = 0;
+
+    /* Initialize input & output audio files */
+    CAudioFileIf *phInputAudioFile = nullptr;
+    CAudioFileIf *phOutputAudioFile = nullptr;
+
+    CAudioFileIf::FileSpec_t stInputFileSpec;
+    CAudioFileIf::FileSpec_t stOutputFileSpec;
+
+    CAudioFileIf::create(phInputAudioFile);
+    CAudioFileIf::create(phOutputAudioFile);
+
+    phInputAudioFile->openFile(args.inputPath, CAudioFileIf::FileIoType_t::kFileRead);
+    phInputAudioFile->getFileSpec(stInputFileSpec);
+    phOutputAudioFile->openFile(args.outputPath, CAudioFileIf::FileIoType_t::kFileWrite, &stInputFileSpec);
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    combFilterInterface->init(args.filterType, args.delay, stInputFileSpec.fSampleRateInHz, stInputFileSpec.iNumChannels);
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamDelay, args.delay);
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, args.gain);
+
+    /* Initialize audio buffer arrays */
+    long long kllBlockSize = static_cast<long long>(kBlockSize);
+
+    float** ppfInputAudioData, **ppfOutputAudioData;
+    ppfInputAudioData = new float* [stInputFileSpec.iNumChannels];
+    ppfOutputAudioData = new float* [stInputFileSpec.iNumChannels];
+    for (int i = 0; i < stInputFileSpec.iNumChannels; ++i) {
+        ppfInputAudioData[i] = new float[kllBlockSize];
+        ppfOutputAudioData[i] = new float[kllBlockSize];
     }
-    delete [] ppfAudioData;
 
+    long long audioLengthInFrame = 0;
+
+    /* Iterate over whole file and apply effect */
+    phInputAudioFile->getLength(audioLengthInFrame);
+    for (long long pos = 0; pos < audioLengthInFrame; phInputAudioFile->getPosition(pos)) {
+        phInputAudioFile->readData(ppfInputAudioData, kllBlockSize);
+        combFilterInterface->process(ppfInputAudioData, ppfOutputAudioData, kllBlockSize);
+        phOutputAudioFile->writeData(ppfOutputAudioData, kllBlockSize);
+    }
+
+    phOutputAudioFile->closeFile();
+
+    /* Clean up allocated things */
+    for (int i = 0; i < stInputFileSpec.iNumChannels; ++i) {
+        delete [] ppfInputAudioData[i];
+        delete [] ppfOutputAudioData[i];
+    }
+    delete[] ppfInputAudioData;
+    delete[] ppfOutputAudioData;
+    
+    CCombFilterIf::destroy(combFilterInterface);
+
+    CAudioFileIf::destroy(phInputAudioFile);
+    CAudioFileIf::destroy(phOutputAudioFile);
+}
+
+bool test_1_FIR_cancel_out_when_frequency_matches() {
+    int iSampleRate = 44100;
+    int iNumSample = 1 * iSampleRate;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = static_cast<float>(sin(2 * M_PIl * static_cast<long double>(i) / static_cast<long double>(iNumSampleToCycle)));
+    }
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    combFilterInterface->init(
+        CCombFilterIf::CombFilterType_t::kCombFIR, 
+        static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+        static_cast<float>(iSampleRate), 
+        1
+    );
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, -1);
+
+    combFilterInterface->process(input, output, iNumSample);
+
+    bool return_value = true;
+    for (int i = iNumSampleToCycle; i < iNumSample && return_value; ++i) {
+        if (output[0][i] > 1e-8F) {
+            std::printf("%d: %.8f\n", i, output[0][i]);
+            return_value = false;
+        }
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
+bool test_2_IIR_mag_change_when_frequency_matches() {
+    int iSampleRate = 44100;
+    int iNumSample = 1 * iSampleRate;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = static_cast<float>(sin(2 * M_PIl * static_cast<long double>(i) / static_cast<long double>(iNumSampleToCycle)));
+    }
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    combFilterInterface->init(
+        CCombFilterIf::CombFilterType_t::kCombIIR, 
+        static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+        static_cast<float>(iSampleRate), 
+        1
+    );
+    combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, 1);
+
+    combFilterInterface->process(input, output, iNumSample);
+
+    bool return_value = true;
+    for (int i = iNumSampleToCycle; i < iNumSample && return_value; i += iNumSampleToCycle) {
+        int iCycle = i / iNumSampleToCycle;
+        for (int j = 0; j < iNumSampleToCycle && return_value; ++j) {
+            int k = i + j;
+            if (abs(output[0][k - iNumSampleToCycle]) > 1e-5F) {
+                if (abs(output[0][k] - output[0][k - iNumSampleToCycle] - input[0][j]) > 1e-5F) {
+                    std::printf("%d: %.5f, %d: %.5f, %d: %.5f\n", k, output[0][k], k - iNumSampleToCycle, output[0][k - iNumSampleToCycle], j, input[0][j]);
+                    return_value = false;
+                }
+            }
+        }
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
+bool test_3_varying_input_block_size() {
+    int iSampleRate = 44100;
+    int iNumSample = (1 << 16) - 1;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    float** refOutput = new float*[1];
+    float** tempInput = new float* [1];
+    float** tempOutput = new float* [1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+    refOutput[0] = new float[iNumSample];
+
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = static_cast<float>(sin(2 * M_PIl * static_cast<long double>(i) / static_cast<long double>(iNumSampleToCycle)));
+    }
+    
+    bool return_value = true;
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+    for (int combTypeId = CCombFilterIf::CombFilterType_t::kCombFIR; combTypeId <= CCombFilterIf::CombFilterType_t::kCombIIR && return_value; ++combTypeId) {
+        CCombFilterIf::CombFilterType_t combType = static_cast<CCombFilterIf::CombFilterType_t>(combTypeId);
+        combFilterInterface->init(
+            combType,
+            static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate),
+            static_cast<float>(iSampleRate),
+            1
+        );
+        combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, 1);
+
+        for (int blockSize = 1, i = 0; i < iNumSample && blockSize < 65536; i += blockSize, blockSize <<= 1) {
+            tempInput[0] = input[0] + i;
+            tempOutput[0] = output[0] + i;
+            combFilterInterface->process(tempInput, tempOutput, blockSize);
+        }
+
+        combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamDelay, static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate));
+        combFilterInterface->process(input, refOutput, iNumSample);
+
+        for (int i = 0; i < iNumSample; ++i) {
+            if (abs(output[0][i] - refOutput[0][i]) > 1e-8) {
+                std::printf("output[0][%d]: %.8f, refOutput[0][%d]: %.8f\n", i, output[0][i], i, refOutput[0][i]);
+                return_value = false;
+            }
+        }
+
+        combFilterInterface->reset();
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    delete[] tempInput;
+    delete[] tempOutput;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
+bool test_4_zero_input_signal() {
+    int iSampleRate = 44100;
+    int iNumSample = 1 * iSampleRate;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+
+    bool return_value = true;
+    for (int combTypeId = CCombFilterIf::CombFilterType_t::kCombFIR; combTypeId <= CCombFilterIf::CombFilterType_t::kCombIIR && return_value; ++combTypeId) {
+        memset(input[0], 0, sizeof(float) * iNumSample);
+        memset(output[0] , 0, sizeof(float) * iNumSample);
+
+        CCombFilterIf::CombFilterType_t combType = static_cast<CCombFilterIf::CombFilterType_t>(combTypeId);
+        combFilterInterface->init(
+            combType,
+            static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+            static_cast<float>(iSampleRate), 
+            1
+        );
+        combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, -1);
+
+        combFilterInterface->process(input, output, iNumSample);
+
+        for (int i = 0; i < iNumSample && return_value; ++i) {
+            if (output[0][i] > 1e-8F) {
+                std::printf("%d: %.8f\n", i, output[0][i]);
+                return_value = false;
+            }
+        }
+
+        combFilterInterface->reset();
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
+bool test_5_varying_parameter_gain() {
+    int iSampleRate = 44100;
+    int iNumSample = 1 * iSampleRate;
+    int iNumSampleToCycle = 441;
+    float** input = new float*[1];
+    float** output = new float*[1];
+    float** tempInput = new float* [1];
+    float** tempOutput = new float* [1];
+    input[0] = new float[iNumSample];
+    output[0] = new float[iNumSample];
+
+    /* Initialize combfilter */
+    CCombFilterIf* combFilterInterface = nullptr;
+    CCombFilterIf::create(combFilterInterface);
+
+    bool return_value = true;
+    for (int i = 0; i < iNumSample; ++i) {
+        input[0][i] = 1.F;
+    }
+
+    combFilterInterface->init(
+        CCombFilterIf::CombFilterType_t::kCombFIR,
+        static_cast<float>(iNumSampleToCycle) / static_cast<float>(iSampleRate), 
+        static_cast<float>(iSampleRate), 
+        1
+    );
+
+    for (int i = 0, j = -1; i < iNumSample; i += iNumSampleToCycle, j *= -1) {
+        tempInput[0] = input[0] + i;
+        tempOutput[0] = output[0] + i;
+        combFilterInterface->setParam(CCombFilterIf::FilterParam_t::kParamGain, j);
+        combFilterInterface->process(tempInput, tempOutput, iNumSampleToCycle);
+    }
+
+    for (int i = iNumSampleToCycle, j = 1; i < iNumSample; i += iNumSampleToCycle, j *= -1) {
+        if (abs(output[0][i] - (j + 1)) > 1e-8F) {
+            std::printf("%d: %.8f, %d\n", i, output[0][i], (j + 1));
+            return_value = false;
+        }
+    }
+    
+    delete[] input[0];
+    delete[] output[0];
+    delete[] input;
+    delete[] output;
+    delete[] tempInput;
+    delete[] tempOutput;
+    CCombFilterIf::destroy(combFilterInterface);
+
+    return return_value;
+}
+
+void runTests() {
+    typedef bool (*fp)(); /* function pointer type */
+    fp testFunctions[] = {
+        test_1_FIR_cancel_out_when_frequency_matches,
+        test_2_IIR_mag_change_when_frequency_matches,
+        test_3_varying_input_block_size,
+        test_4_zero_input_signal,
+        test_5_varying_parameter_gain
+    };
+
+    for (int i = 0; i < 5; ++i) {
+        fp testFunctionPointer = testFunctions[i];
+        if (testFunctionPointer()) {
+            std::printf("\033[32m[PASS]\033[39m");
+        }
+        else {
+            std::printf("\033[31m[FAIL]\033[39m");
+        }
+        std::printf(" Test %d\n", i + 1);
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+// main function
+int main(int argc, char* argv[]) {
+    if (argc > 1) {
+        /* First parse arguments, which is essential for audio file interface & combfilter initialization */
+        try {
+            CombFilterArgs_t args = parseArg(argc, argv);
+            processFile(args);
+        }
+        catch (std::exception& e) {
+            std::fprintf(stderr, "Error when trying to parse arguments: %s", e.what());
+        }
+    }
+    else {
+        printUsage();
+        std::printf("[WARN] No argument given, run tests by default.\n");
+        runTests();
+    }
     // all done
     return 0;
-
 }
 
 
@@ -105,4 +471,3 @@ void     showClInfo()
 
     return;
 }
-
