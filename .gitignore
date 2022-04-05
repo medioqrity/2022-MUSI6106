@@ -69,3 +69,4 @@ out_
 /src/*.bak
 
 cmake-build-debug/*
+build/*
