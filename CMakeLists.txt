@@ -2,6 +2,9 @@ cmake_minimum_required (VERSION 3.0)
 project (MUSI6106
         VERSION 0.0.0.1)
 
+# enable c++17
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
 #######################################################################################################
 ## includes
 # where to look for the default stuff...
@@ -27,6 +30,15 @@ option (WITH_TESTS "Use googletest for testing" ON)
 #######################################################################################################
 ## project specific stuff
 
+# YouCompleteMe support (see https://bastian.rieck.me/blog/posts/2015/ycm_cmake/)
+set (CMAKE_EXPORT_COMPILE_COMMANDS ON)
+IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
+  EXECUTE_PROCESS(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json
+  )
+ENDIF()
+
 # set directories
 set (PROJECT_DIRECTORIES)
 list (APPEND PROJECT_DIRECTORIES ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}Exec)       
@@ -38,9 +50,9 @@ list (APPEND PROJECT_DIRECTORIES ${CMAKE_SOURCE_DIR}/src/FastConv)
     
 # set includes
 set (PROJECT_INCLUDES)
-list (APPEND PROJECT_INCLUDES ${CMAKE_SOURCE_DIR}/inc)       
-list (APPEND PROJECT_INCLUDES ${CMAKE_SOURCE_DIR}/src/inc)       
-list (APPEND PROJECT_INCLUDES ${CMAKE_BINARY_DIR}/inc)       
+list (APPEND PROJECT_INCLUDES ${CMAKE_SOURCE_DIR}/inc)
+list (APPEND PROJECT_INCLUDES ${CMAKE_SOURCE_DIR}/src/inc)
+list (APPEND PROJECT_INCLUDES ${CMAKE_BINARY_DIR}/inc)
 
 if (WITH_TESTS)
     list (APPEND PROJECT_DIRECTORIES ${CMAKE_SOURCE_DIR}/3rdparty/googletest)
@@ -49,7 +61,6 @@ endif (WITH_TESTS)
 
 # add directories
 add_src_directories ()
-
 
 # output version number variable
 message(STATUS ${PROJECT_NAME} Version: ${PROJECT_VERSION})

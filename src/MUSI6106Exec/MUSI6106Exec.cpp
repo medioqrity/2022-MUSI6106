@@ -5,7 +5,7 @@
 #include "MUSI6106Config.h"
 
 #include "AudioFileIf.h"
-#include "Vibrato.h"
+#include "FastConv.h"
 
 using std::cout;
 using std::endl;
@@ -13,119 +13,185 @@ using std::endl;
 // local function declarations
 void    showClInfo();
 
+/*
+    This class hides unimportant low-level details like:
+        - Two phase initialization / deletion of `CAudioFileIf`
+        - Nested initialization / deletion of audio buffer
+        - Manage audio file related information (IO type, file spec)
+        - Error handling
+
+    This class also provides easier interface:
+        - Only need `filepath`, `blockSize`, and `ioType` to create.
+
+    This class represents the true "conceptual" audio file, which is easier to understand & use.
+*/
+class AudioFileWrapper {
+public:
+    AudioFileWrapper(
+        const std::string& filepath, 
+        int blockSize, 
+        CAudioFileIf::FileIoType_t ioType, 
+        CAudioFileIf::FileSpec_t* fileSpec = nullptr
+    ): filepath(filepath), blockSize(blockSize), ioType(ioType), fileSpec(fileSpec) {
+        CAudioFileIf::create(phAudioFile);
+
+        if (phAudioFile == nullptr) {
+            throw std::exception("failed to create audio file handler");
+        }
+
+        switch (ioType)
+        {
+        case CAudioFileIf::kFileRead:
+            phAudioFile->openFile(filepath, ioType);
+            fileSpec = new CAudioFileIf::FileSpec_t();
+            phAudioFile->getFileSpec(*fileSpec);
+            break;
+        case CAudioFileIf::kFileWrite:
+            phAudioFile->openFile(filepath, ioType, fileSpec);
+            break;
+        default:
+            throw std::exception("wrong parameter of ioType (should be read / write)");
+        }
+
+        if (!phAudioFile->isOpen()) {
+            throw std::exception("failed to open file");
+        }
+
+        if (fileSpec == nullptr) {
+            throw std::exception("failed to load file spec");
+        }
+
+        int numChannels = fileSpec->iNumChannels;
+        buffer = new float* [numChannels];
+        for (int i = 0; i < numChannels; ++i) {
+            buffer[i] = new float[blockSize];
+        }
+
+        phAudioFile->getLength(fileNumSample);
+    }
+
+    ~AudioFileWrapper() {
+        int numChannels = fileSpec->iNumChannels;
+        for (int i = 0; i < numChannels; ++i) {
+            delete[] buffer[i];
+            buffer[i] = nullptr;
+        }
+        delete[] buffer;
+        buffer = nullptr;
+
+        if (ioType == CAudioFileIf::kFileRead) {
+            delete fileSpec;
+            fileSpec = nullptr;
+        }
+
+        CAudioFileIf::destroy(phAudioFile);
+    }
+
+    CAudioFileIf::FileSpec_t* getFileSpec() {
+        return fileSpec;
+    }
+
+    void readData(long long numSample) {
+        if (ioType == CAudioFileIf::kFileRead) {
+            phAudioFile->readData(buffer, numSample);
+        }
+    }
+
+    void writeData(long long numSample) {
+        if (ioType == CAudioFileIf::kFileWrite) {
+            phAudioFile->writeData(buffer, numSample);
+        }
+    }
+
+    bool isEof() const{
+        if (phAudioFile == nullptr) throw new std::exception("audio file handler has not been initialized");
+        return phAudioFile->isEof();
+    }
+
+    int getNumChannels() const {
+        if (fileSpec == nullptr) throw new std::exception("file spec is nullptr, cannot get channel count");
+        return fileSpec->iNumChannels;
+    }
+
+    int getNumSample() {
+        return fileNumSample;
+    }
+
+    float getSampleRate() const {
+        return fileSpec->fSampleRateInHz;
+    }
+
+    float** getBuffer() {
+        return buffer;
+    }
+
+private:
+    std::string filepath;
+    int blockSize;
+    long long fileNumSample;
+    float** buffer;
+    CAudioFileIf::FileIoType_t ioType;
+    CAudioFileIf::FileSpec_t* fileSpec = nullptr;
+    CAudioFileIf* phAudioFile = nullptr;
+};
+
 /////////////////////////////////////////////////////////////////////////////////
 // main function
 int main(int argc, char* argv[])
 {
 
     std::string             sInputFilePath,                 //!< file paths
-        sOutputFilePath;
+                            sIRFilePath,
+                            sOutputFilePath;
 
     static const int            kBlockSize = 1024;
     long long                   iNumFrames = kBlockSize;
-    int                         iNumChannels;
 
     float                       fModFrequencyInHz;
     float                       fModWidthInSec;
 
     clock_t                     time = 0;
 
-    float** ppfInputAudio = 0;
-    float** ppfOutputAudio = 0;
-
-    CAudioFileIf* phAudioFile = 0;
-    CAudioFileIf* phAudioOutputFile = 0;
-
-    CAudioFileIf::FileSpec_t    stFileSpec;
-
-    CVibrato* pCVibrato = 0;
+    CFastConv* pCFastConv = nullptr;
 
     showClInfo();
 
-
     // command line args
-    if (argc < 5)
+    if (argc != 4)
     {
         cout << "Incorrect number of arguments!" << endl;
         return -1;
     }
     sInputFilePath = argv[1];
-    sOutputFilePath = argv[2];
-    fModFrequencyInHz = atof(argv[3]);
-    fModWidthInSec = atof(argv[4]);
+    sIRFilePath = argv[2];
+    sOutputFilePath = argv[3];
 
     ///////////////////////////////////////////////////////////////////////////
-    CAudioFileIf::create(phAudioFile);
-    CAudioFileIf::create(phAudioOutputFile);
+    AudioFileWrapper inputAudio(sInputFilePath, kBlockSize, CAudioFileIf::kFileRead);
+    AudioFileWrapper impulseResponse(sIRFilePath, kBlockSize, CAudioFileIf::kFileRead);
+    AudioFileWrapper outputAudio(sOutputFilePath, kBlockSize, CAudioFileIf::kFileWrite, inputAudio.getFileSpec());
 
-    phAudioFile->openFile(sInputFilePath, CAudioFileIf::kFileRead);
-    phAudioFile->getFileSpec(stFileSpec);
-    phAudioOutputFile->openFile(sOutputFilePath, CAudioFileIf::kFileWrite, &stFileSpec);
-    iNumChannels = stFileSpec.iNumChannels;
-    if (!phAudioFile->isOpen())
-    {
-        cout << "Input file open error!";
-
-        CAudioFileIf::destroy(phAudioFile);
-        CAudioFileIf::destroy(phAudioOutputFile);
-        return -1;
-    }
-    else if (!phAudioOutputFile->isOpen())
-    {
-        cout << "Output file cannot be initialized!";
-
-        CAudioFileIf::destroy(phAudioFile);
-        CAudioFileIf::destroy(phAudioOutputFile);
-        return -1;
-    }
     ////////////////////////////////////////////////////////////////////////////
-    CVibrato::create(pCVibrato);
-    pCVibrato->init(fModWidthInSec, stFileSpec.fSampleRateInHz, iNumChannels);
+    pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), kBlockSize, CFastConv::kTimeDomain);
 
-    // allocate memory
-    ppfInputAudio = new float* [stFileSpec.iNumChannels];
-    for (int i = 0; i < stFileSpec.iNumChannels; i++)
-        ppfInputAudio[i] = new float[kBlockSize];
-
-    ppfOutputAudio = new float* [stFileSpec.iNumChannels];
-    for (int i = 0; i < stFileSpec.iNumChannels; i++)
-        ppfOutputAudio[i] = new float[kBlockSize];
-
-    // Set parameters of vibrato
-    pCVibrato->setParam(CVibrato::kParamModFreqInHz, fModFrequencyInHz);
-    pCVibrato->setParam(CVibrato::kParamModWidthInS, fModWidthInSec);
-
+    ////////////////////////////////////////////////////////////////////////////
     // processing
-    while (!phAudioFile->isEof())
+    while (!inputAudio.isEof())
     {
-        phAudioFile->readData(ppfInputAudio, iNumFrames);
-        pCVibrato->process(ppfInputAudio, ppfOutputAudio, iNumFrames);
-        phAudioOutputFile->writeData(ppfOutputAudio, iNumFrames);
+        inputAudio.readData(iNumFrames);
+        pCFastConv->process(inputAudio.getBuffer()[0], outputAudio.getBuffer()[0], iNumFrames);
+        outputAudio.writeData(iNumFrames);
     }
-    phAudioFile->getFileSpec(stFileSpec);
-
 
     cout << "\nreading/writing done in: \t" << (clock() - time) * 1.F / CLOCKS_PER_SEC << " seconds." << endl;
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up
-    CAudioFileIf::destroy(phAudioFile);
-    CAudioFileIf::destroy(phAudioOutputFile);
-    CVibrato::destroy(pCVibrato);
-
-    for (int i = 0; i < stFileSpec.iNumChannels; i++)
-    {
-        delete[] ppfInputAudio[i];
-        delete[] ppfOutputAudio[i];
-    }
-    delete[] ppfInputAudio;
-    delete[] ppfOutputAudio;
-    ppfInputAudio = 0;
-    ppfOutputAudio = 0;
+    pCFastConv->reset();
+    delete pCFastConv;
 
     // all done
     return 0;
-
 }
 
 

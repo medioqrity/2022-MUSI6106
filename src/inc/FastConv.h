@@ -6,6 +6,8 @@
 
 #include "ErrorDef.h"
 
+class ConvolverInterface;
+
 /*! \brief interface for fast convolution
 */
 class CFastConv
@@ -48,10 +50,8 @@ public:
     \return Error_t
     */
     Error_t flushBuffer(float* pfOutputBuffer);
-
 private:
-
+    ConvolverInterface* convolver;
 };
-
 
 #endif
