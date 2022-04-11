@@ -14,10 +14,13 @@ public:
     virtual Error_t process(float* output, const float* input, int bufferLength) = 0;
     virtual Error_t flushBuffer(float *pfOutputBuffer) = 0;
 
+    Error_t setWetGain(float wetGain);
+
 protected:
     float *m_IR;
     int m_IRLength;
     int m_blockLength;
+    float m_wetGain = 1.F;
 };
 
 class ConvolverFactory {
@@ -30,10 +33,10 @@ public:
     TrivialFIRConvolver(float* impulseResponse, int irLength, int blockLength);
     ~TrivialFIRConvolver();
 
-    Error_t init(float* impulseResponse, int irLength, int blockLength);
-    Error_t reset();
+    Error_t init(float* impulseResponse, int irLength, int blockLength) override;
+    Error_t reset() override;
 
-    Error_t process(float*, const float*, int) override;
+    Error_t process(float* output, const float* input, int bufferLength) override;
     Error_t flushBuffer(float*) override;
 
 private:
@@ -49,10 +52,10 @@ public:
     UniformlyPartitionedFFTConvolver(float* impulseResponse, int irLength, int blockLength);
     ~UniformlyPartitionedFFTConvolver();
 
-    Error_t init(float* impulseResponse, int irLength, int blockLength);
-    Error_t reset();
+    Error_t init(float* impulseResponse, int irLength, int blockLength) override;
+    Error_t reset() override;
 
-    Error_t process(float*, const float*, int) override;
+    Error_t process(float* output, const float* input, int bufferLength) override;
     Error_t flushBuffer(float *pfOutputBuffer) override;
 };
 

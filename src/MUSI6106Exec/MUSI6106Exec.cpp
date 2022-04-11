@@ -43,8 +43,8 @@ public:
         {
         case CAudioFileIf::kFileRead:
             phAudioFile->openFile(filepath, ioType);
-            fileSpec = new CAudioFileIf::FileSpec_t();
-            phAudioFile->getFileSpec(*fileSpec);
+            this->fileSpec = new CAudioFileIf::FileSpec_t();
+            phAudioFile->getFileSpec(*(this->fileSpec));
             break;
         case CAudioFileIf::kFileWrite:
             phAudioFile->openFile(filepath, ioType, fileSpec);
@@ -57,17 +57,24 @@ public:
             throw std::exception("failed to open file");
         }
 
-        if (fileSpec == nullptr) {
+        if (this->fileSpec == nullptr) {
             throw std::exception("failed to load file spec");
         }
 
-        int numChannels = fileSpec->iNumChannels;
-        buffer = new float* [numChannels];
-        for (int i = 0; i < numChannels; ++i) {
-            buffer[i] = new float[blockSize];
+        phAudioFile->getLength(fileNumSample);
+
+        // shortcut for loading the full audio file
+        bool readFullFileFlag = this->blockSize < 0;
+        if (readFullFileFlag) {
+            this->blockSize = fileNumSample;
         }
 
-        phAudioFile->getLength(fileNumSample);
+        int numChannels = this->fileSpec->iNumChannels;
+        buffer = new float* [numChannels];
+        for (int i = 0; i < numChannels; ++i) {
+            buffer[i] = new float[this->blockSize];
+            memset(buffer[i], 0, sizeof(float) * this->blockSize);
+        }
     }
 
     ~AudioFileWrapper() {
@@ -84,6 +91,7 @@ public:
             fileSpec = nullptr;
         }
 
+        phAudioFile->closeFile();
         CAudioFileIf::destroy(phAudioFile);
     }
 
@@ -113,7 +121,7 @@ public:
         return fileSpec->iNumChannels;
     }
 
-    int getNumSample() {
+    long long getNumSample() const {
         return fileNumSample;
     }
 
@@ -121,8 +129,18 @@ public:
         return fileSpec->fSampleRateInHz;
     }
 
+    long long getHead() {
+        long long head;
+        phAudioFile->getPosition(head);
+        return head;
+    }
+
     float** getBuffer() {
         return buffer;
+    }
+
+    CAudioFileIf* getAudioFile() {
+        return phAudioFile;
     }
 
 private:
@@ -152,36 +170,47 @@ int main(int argc, char* argv[])
 
     clock_t                     time = 0;
 
-    CFastConv* pCFastConv = nullptr;
+    CFastConv* pCFastConv = new CFastConv();
 
     showClInfo();
 
     // command line args
-    if (argc != 4)
-    {
-        cout << "Incorrect number of arguments!" << endl;
-        return -1;
-    }
-    sInputFilePath = argv[1];
-    sIRFilePath = argv[2];
-    sOutputFilePath = argv[3];
+    // if (argc != 4)
+    // {
+    //     cout << "Incorrect number of arguments!" << endl;
+    //     return -1;
+    // }
+    sInputFilePath = "DELTA.wav";
+    sIRFilePath = "IR_SHORT.wav";
+    sOutputFilePath = "out.wav";
 
     ///////////////////////////////////////////////////////////////////////////
     AudioFileWrapper inputAudio(sInputFilePath, kBlockSize, CAudioFileIf::kFileRead);
-    AudioFileWrapper impulseResponse(sIRFilePath, kBlockSize, CAudioFileIf::kFileRead);
+    AudioFileWrapper impulseResponse(sIRFilePath, -1, CAudioFileIf::kFileRead);
     AudioFileWrapper outputAudio(sOutputFilePath, kBlockSize, CAudioFileIf::kFileWrite, inputAudio.getFileSpec());
 
     ////////////////////////////////////////////////////////////////////////////
+    impulseResponse.readData(impulseResponse.getNumSample());
     pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), kBlockSize, CFastConv::kTimeDomain);
+    pCFastConv->setWetGain(1.F);
 
     ////////////////////////////////////////////////////////////////////////////
     // processing
     while (!inputAudio.isEof())
     {
+        printf("%lld\n", inputAudio.getHead());
         inputAudio.readData(iNumFrames);
-        pCFastConv->process(inputAudio.getBuffer()[0], outputAudio.getBuffer()[0], iNumFrames);
+        pCFastConv->process(outputAudio.getBuffer()[0], inputAudio.getBuffer()[0], iNumFrames);
         outputAudio.writeData(iNumFrames);
     }
+    // flush remaining
+    float* remain = new float[impulseResponse.getNumSample()];
+    memset(remain, 0, sizeof(float) * impulseResponse.getNumSample());
+    pCFastConv->flushBuffer(remain);
+    // and write remaining to output
+    // it's ugly but currently no more elegant way to work around this
+    auto outputAudioFile = outputAudio.getAudioFile();
+    // outputAudioFile->writeData(&remain, impulseResponse.getNumSample());
 
     cout << "\nreading/writing done in: \t" << (clock() - time) * 1.F / CLOCKS_PER_SEC << " seconds." << endl;
 
@@ -189,6 +218,7 @@ int main(int argc, char* argv[])
     // clean-up
     pCFastConv->reset();
     delete pCFastConv;
+    delete[] remain;
 
     // all done
     return 0;

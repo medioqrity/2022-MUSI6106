@@ -37,5 +37,9 @@ Error_t CFastConv::flushBuffer(float* pfOutputBuffer)
     if (convolver != nullptr) {
         return convolver->flushBuffer(pfOutputBuffer);
     }
-    return Error_t::kNoError;
+    return Error_t::kNotInitializedError;
+}
+
+Error_t CFastConv::setWetGain(float wetGain) {
+    return convolver->setWetGain(wetGain);
 }

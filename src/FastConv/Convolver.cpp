@@ -15,13 +15,13 @@ Error_t ConvolverInterface::init(float* impulseResponse, int irLength, int block
 }
 
 Error_t ConvolverInterface::reset() {
-    if (m_IR != nullptr) {
-        delete[] m_IR;
-    }
-    m_IR = nullptr;
-
     m_IRLength = 0;
     m_blockLength = 0;
+    return Error_t::kNoError;
+}
+
+Error_t ConvolverInterface::setWetGain(float wetGain) {
+    m_wetGain = wetGain;
     return Error_t::kNoError;
 }
 
@@ -76,30 +76,60 @@ Error_t TrivialFIRConvolver::init(float* impulseResponse, int irLength, int bloc
 
 Error_t TrivialFIRConvolver::reset() {
     Error_t ret;
-    if ((ret = ConvolverInterface::reset()) != Error_t::kNoError) return ret;
     if ((ret = deleteBuffer()) != Error_t::kNoError) return ret;
     return Error_t::kNoError;
 }
 
 Error_t TrivialFIRConvolver::process(float* output, const float* input, int bufferLength) {
     for (int i = 0; i < bufferLength; ++i) {
-        m_buffer->getPostInc();
         m_buffer->putPostInc(input[i]);
-        for (int j = 0; j < m_IRLength; ++i) {
-            output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
+        for (int j = 0; j < m_IRLength; ++j) {
+            output[i] += m_buffer->get(m_IRLength-j) * (m_IR[j] * m_wetGain);
         }
+        m_buffer->getPostInc();
     }
     return Error_t::kNoError;
 }
 
 Error_t TrivialFIRConvolver::flushBuffer(float* output) {
     for (int i = 0; i < m_IRLength; ++i) {
-        m_buffer->getPostInc();
+        if ((i & 1023) == 0) printf("%d\n", i);
         m_buffer->putPostInc(0.F);
-        for (int j = 0; j < m_IRLength; ++i) {
-            output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
+        for (int j = 0; j < m_IRLength; ++j) {
+            output[i] += m_buffer->get(m_IRLength-j) * (m_IR[j] * m_wetGain);
         }
+        m_buffer->getPostInc();
     }
     return Error_t::kNoError;
 }
 
+UniformlyPartitionedFFTConvolver::UniformlyPartitionedFFTConvolver(float* impulseResponse, int irLength, int blockLength) {
+
+}
+
+UniformlyPartitionedFFTConvolver::~UniformlyPartitionedFFTConvolver() {
+
+}
+
+Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLength, int blockLength) {
+    Error_t ret;
+    if ((ret = ConvolverInterface::init(impulseResponse, irLength, blockLength)) != Error_t::kNoError) return ret;
+    
+    // TODO Write state information required by FFT here.
+
+    return Error_t::kNoError;
+}
+
+Error_t UniformlyPartitionedFFTConvolver::reset() {
+    return Error_t::kNoError;
+}
+
+Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* input, int bufferLength) {
+    // TODO write process procedure
+    return Error_t::kNoError;
+}
+
+Error_t UniformlyPartitionedFFTConvolver::flushBuffer(float *pfOutputBuffer) {
+    // TODO write flush buffer procedure
+    return Error_t::kUnknownError;
+}
