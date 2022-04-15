@@ -93,7 +93,6 @@ Error_t TrivialFIRConvolver::process(float* output, const float* input, int buff
 
 Error_t TrivialFIRConvolver::flushBuffer(float* output) {
     for (int i = 0; i < m_IRLength; ++i) {
-        if ((i & 1023) == 0) printf("%d\n", i);
         m_buffer->putPostInc(0.F);
         for (int j = 0; j < m_IRLength; ++j) {
             output[i] += m_buffer->get(m_IRLength-j) * (m_IR[j] * m_wetGain);

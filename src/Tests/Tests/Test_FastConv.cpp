@@ -27,18 +27,18 @@ namespace fastconv_test {
             m_pCFastConv = new CFastConv();
 
             // generate a random IR of length 51 samples
-            int randomIRSize = 51;
-            IR = new float[randomIRSize];
-            memset(IR, 0, sizeof(float) * randomIRSize);
+            IRLength = 51;
+            IR = new float[IRLength];
+            memset(IR, 0, sizeof(float) * IRLength);
 
             // use mt19937 & distribution for high quality random number generation
             std::mt19937 generator(114514); // 114514 is seed
             std::uniform_real_distribution<float> uniformRealDistribution(-1.F, 1.F);
-            for (int i = 0; i < randomIRSize; ++i) {
+            for (int i = 0; i < IRLength; ++i) {
                 IR[i] = uniformRealDistribution(generator);
             }
 
-            m_pCFastConv->init(IR, randomIRSize, randomIRSize, CFastConv::kTimeDomain);
+            m_pCFastConv->init(IR, IRLength, IRLength, CFastConv::kTimeDomain);
         }
 
         virtual void TearDown()
@@ -47,6 +47,7 @@ namespace fastconv_test {
             delete[] IR;
         }
 
+        int IRLength = 0;
         float* IR = nullptr;
         CFastConv *m_pCFastConv = nullptr;
     };
@@ -74,6 +75,34 @@ namespace fastconv_test {
         // also check if the first three are ok
         for (int i = 0; i < shift; ++i) {
             EXPECT_EQ(output[i], 0);
+        }
+
+        delete[] input;
+        delete[] output;
+    }
+
+    TEST_F(FastConv, flushbuffer) {
+        // initialize input signal, which is $\delta[n-3]$
+        int shift = 3;
+        int signalLength = 10;
+        float* input = new float[signalLength]; // make the input signal 10 samples long
+        memset(input, 0, sizeof(float) * signalLength); // an impulse as input signal at sample index 3
+        input[shift] = 1.F;
+
+        // initialize output signal
+        float* output = new float[IRLength];
+        memset(output, 0, sizeof(float) * IRLength);
+
+        // process & discard result
+        m_pCFastConv->process(output, input, signalLength);
+        memset(output, 0, sizeof(float) * IRLength);
+
+        // flush
+        m_pCFastConv->flushBuffer(output);
+
+        // check if the tail is correct
+        for (int i = 0; i + signalLength - shift < IRLength; ++i) {
+            EXPECT_EQ(output[i], IR[i + signalLength - shift]);
         }
 
         delete[] input;
