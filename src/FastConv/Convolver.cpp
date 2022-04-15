@@ -1,4 +1,5 @@
 #include "Convolver.h"
+
 ConvolverInterface::ConvolverInterface() {
     reset();
 }
@@ -37,7 +38,7 @@ ConvolverInterface* ConvolverFactory::createConvolver(float* impulseResponse, in
     default:
         break;
     }
-    throw new std::exception("Invalid parameter of convolver type choice");
+    // throw new std::exception("Invalid parameter of convolver type choice");
 }
 
 TrivialFIRConvolver::TrivialFIRConvolver(float* impulseResponse, int irLength, int blockLength) {
@@ -103,7 +104,8 @@ Error_t TrivialFIRConvolver::flushBuffer(float* output) {
 }
 
 UniformlyPartitionedFFTConvolver::UniformlyPartitionedFFTConvolver(float* impulseResponse, int irLength, int blockLength) {
-
+    CFft::createInstance(pCFft);
+    pCFft->initInstance(blockLength, iZeroPadFactor)
 }
 
 UniformlyPartitionedFFTConvolver::~UniformlyPartitionedFFTConvolver() {
@@ -113,13 +115,13 @@ UniformlyPartitionedFFTConvolver::~UniformlyPartitionedFFTConvolver() {
 Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLength, int blockLength) {
     Error_t ret;
     if ((ret = ConvolverInterface::init(impulseResponse, irLength, blockLength)) != Error_t::kNoError) return ret;
-    
+    if ((ret = initBuffer(irLength)) != Error_t::kNoError) return ret;
     // TODO Write state information required by FFT here.
-
     return Error_t::kNoError;
 }
 
 Error_t UniformlyPartitionedFFTConvolver::reset() {
+    if ((ret = deleteBuffer()) != Error_t::kNoError) return ret;
     return Error_t::kNoError;
 }
 

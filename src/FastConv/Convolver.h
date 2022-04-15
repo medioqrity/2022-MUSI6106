@@ -2,6 +2,7 @@
 #include "RingBuffer.h"
 #include "FastConv.h"
 #include <string>
+#include "Fft.h"
 
 class ConvolverInterface {
 public:
@@ -57,6 +58,8 @@ public:
 
     Error_t process(float* output, const float* input, int bufferLength) override;
     Error_t flushBuffer(float *pfOutputBuffer) override;
+private:
+    CFft* pCFft;
 };
 
 

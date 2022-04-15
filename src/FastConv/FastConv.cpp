@@ -13,6 +13,9 @@ CFastConv::~CFastConv()
 Error_t CFastConv::init(float *pfImpulseResponse, int iLengthOfIr, int iBlockLength /*= 8192*/, ConvCompMode_t eCompMode /*= kFreqDomain*/)
 {
     convolver = ConvolverFactory::createConvolver(pfImpulseResponse, iLengthOfIr, iBlockLength, eCompMode);
+
+    
+
     return Error_t::kNoError;
 }
 

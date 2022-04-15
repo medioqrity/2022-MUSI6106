@@ -36,7 +36,7 @@ public:
         CAudioFileIf::create(phAudioFile);
 
         if (phAudioFile == nullptr) {
-            throw std::exception("failed to create audio file handler");
+            // throw std::exception("failed to create audio file handler");
         }
 
         switch (ioType)
@@ -49,16 +49,16 @@ public:
         case CAudioFileIf::kFileWrite:
             phAudioFile->openFile(filepath, ioType, fileSpec);
             break;
-        default:
-            throw std::exception("wrong parameter of ioType (should be read / write)");
+        // default:
+        //     throw std::exception("wrong parameter of ioType (should be read / write)");
         }
 
         if (!phAudioFile->isOpen()) {
-            throw std::exception("failed to open file");
+            // throw std::exception("failed to open file");
         }
 
         if (this->fileSpec == nullptr) {
-            throw std::exception("failed to load file spec");
+            // throw std::exception("failed to load file spec");
         }
 
         phAudioFile->getLength(fileNumSample);
@@ -112,12 +112,12 @@ public:
     }
 
     bool isEof() const{
-        if (phAudioFile == nullptr) throw new std::exception("audio file handler has not been initialized");
+        // if (phAudioFile == nullptr) throw new std::exception("audio file handler has not been initialized");
         return phAudioFile->isEof();
     }
 
     int getNumChannels() const {
-        if (fileSpec == nullptr) throw new std::exception("file spec is nullptr, cannot get channel count");
+        // if (fileSpec == nullptr) throw new std::exception("file spec is nullptr, cannot get channel count");
         return fileSpec->iNumChannels;
     }
 
