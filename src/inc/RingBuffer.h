@@ -213,6 +213,15 @@ public:
     {
         return m_iBuffLength;
     }
+
+    T* getHead(int iOffset) const {
+        int iRead = m_iReadIdx + iOffset;
+        while (iRead > m_iBuffLength - 1)
+            iRead -= m_iBuffLength;
+        while (iRead < 0)
+            iRead += m_iBuffLength;
+        return m_ptBuff + iRead;
+    }
 private:
     CRingBuffer();
     CRingBuffer(const CRingBuffer& that);

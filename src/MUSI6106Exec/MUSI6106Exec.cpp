@@ -1,11 +1,13 @@
 
 #include <iostream>
 #include <ctime>
+#include <cassert>
 
 #include "MUSI6106Config.h"
 
 #include "AudioFileIf.h"
 #include "FastConv.h"
+#include "Fft.h"
 
 using std::cout;
 using std::endl;
@@ -157,7 +159,6 @@ private:
 // main function
 int main(int argc, char* argv[])
 {
-
     std::string             sInputFilePath,                 //!< file paths
                             sIRFilePath,
                             sOutputFilePath;
@@ -180,7 +181,7 @@ int main(int argc, char* argv[])
     //     cout << "Incorrect number of arguments!" << endl;
     //     return -1;
     // }
-    sInputFilePath = "DELTA.wav";
+    sInputFilePath = "fake_id.wav";
     sIRFilePath = "IR_SHORT.wav";
     sOutputFilePath = "out.wav";
 
@@ -191,7 +192,7 @@ int main(int argc, char* argv[])
 
     ////////////////////////////////////////////////////////////////////////////
     impulseResponse.readData(impulseResponse.getNumSample());
-    pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), kBlockSize, CFastConv::kTimeDomain);
+    pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), kBlockSize, CFastConv::kFreqDomain);
     pCFastConv->setWetGain(1.F);
 
     ////////////////////////////////////////////////////////////////////////////
@@ -203,22 +204,22 @@ int main(int argc, char* argv[])
         pCFastConv->process(outputAudio.getBuffer()[0], inputAudio.getBuffer()[0], iNumFrames);
         outputAudio.writeData(iNumFrames);
     }
+
     // flush remaining
-    float* remain = new float[impulseResponse.getNumSample()];
-    memset(remain, 0, sizeof(float) * impulseResponse.getNumSample());
-    pCFastConv->flushBuffer(remain);
+    // float* remain = new float[impulseResponse.getNumSample()];
+    // memset(remain, 0, sizeof(float) * impulseResponse.getNumSample());
+    // pCFastConv->flushBuffer(remain);
     // and write remaining to output
     // it's ugly but currently no more elegant way to work around this
-    auto outputAudioFile = outputAudio.getAudioFile();
+    // auto outputAudioFile = outputAudio.getAudioFile();
     // outputAudioFile->writeData(&remain, impulseResponse.getNumSample());
 
     cout << "\nreading/writing done in: \t" << (clock() - time) * 1.F / CLOCKS_PER_SEC << " seconds." << endl;
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up
-    pCFastConv->reset();
     delete pCFastConv;
-    delete[] remain;
+    // delete[] remain;
 
     // all done
     return 0;

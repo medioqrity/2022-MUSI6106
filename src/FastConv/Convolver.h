@@ -3,6 +3,7 @@
 #include "FastConv.h"
 #include <string>
 #include "Fft.h"
+#include "Vector.h"
 
 class ConvolverInterface {
 public:
@@ -59,7 +60,20 @@ public:
     Error_t process(float* output, const float* input, int bufferLength) override;
     Error_t flushBuffer(float *pfOutputBuffer) override;
 private:
-    CFft* pCFft;
+    int m_IRNumBlock = 0;
+    int blockLength = 0;
+    CFft* pCFft = nullptr;
+    CFft::complex_t* xFreq = nullptr;
+    CFft::complex_t** IR_Freq = nullptr; // might be multiple blocks
+    CRingBuffer<float>* bufferReal = nullptr;
+    CRingBuffer<float>* bufferImag = nullptr;
+
+    // temporal variables that are useful for calculation
+    float* aReal, *bReal, *cReal;
+    float* aImag, *bImag, *cImag;
+    float* temp, *iFFTTemp;
+
+    void __complexVectorMul_I(CFft::complex_t* a, const CFft::complex_t* b);
 };
 
 
