@@ -17,6 +17,7 @@ public:
     virtual Error_t flushBuffer(float *pfOutputBuffer) = 0;
 
     Error_t setWetGain(float wetGain);
+    void applyWetGain(float* output, int length);
 
 protected:
     float *m_IR;
@@ -63,10 +64,10 @@ private:
     int m_IRNumBlock = 0;
     int blockLength = 0;
     CFft* pCFft = nullptr;
-    CFft::complex_t* xFreq = nullptr;
+    CFft::complex_t* X = nullptr;
+    CFft::complex_t* X_origin = nullptr;
     CFft::complex_t** IR_Freq = nullptr; // might be multiple blocks
-    CRingBuffer<float>* bufferReal = nullptr;
-    CRingBuffer<float>* bufferImag = nullptr;
+    CRingBuffer<float>* buffer = nullptr;
 
     // temporal variables that are useful for calculation
     float* aReal, *bReal, *cReal;

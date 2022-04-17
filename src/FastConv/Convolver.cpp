@@ -21,6 +21,10 @@ Error_t ConvolverInterface::reset() {
     return Error_t::kNoError;
 }
 
+void ConvolverInterface::applyWetGain(float* output, int length) {
+    CVectorFloat::mulC_I(output, m_wetGain, length);
+}
+
 Error_t ConvolverInterface::setWetGain(float wetGain) {
     m_wetGain = wetGain;
     return Error_t::kNoError;
@@ -85,10 +89,11 @@ Error_t TrivialFIRConvolver::process(float* output, const float* input, int buff
     for (int i = 0; i < bufferLength; ++i) {
         m_buffer->putPostInc(input[i]);
         for (int j = 0; j < m_IRLength; ++j) {
-            output[i] += m_buffer->get(m_IRLength-j) * (m_IR[j] * m_wetGain);
+            output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
         }
         m_buffer->getPostInc();
     }
+    applyWetGain(output, bufferLength);
     return Error_t::kNoError;
 }
 
@@ -96,10 +101,11 @@ Error_t TrivialFIRConvolver::flushBuffer(float* output) {
     for (int i = 0; i < m_IRLength; ++i) {
         m_buffer->putPostInc(0.F);
         for (int j = 0; j < m_IRLength; ++j) {
-            output[i] += m_buffer->get(m_IRLength-j) * (m_IR[j] * m_wetGain);
+            output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
         }
         m_buffer->getPostInc();
     }
+    applyWetGain(output, m_IRLength);
     return Error_t::kNoError;
 }
 
@@ -115,11 +121,13 @@ UniformlyPartitionedFFTConvolver::~UniformlyPartitionedFFTConvolver() {
 }
 
 Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLength, int blockLength) {
+    int doubleBlockLength = blockLength << 1;
+
     Error_t ret;
     if ((ret = ConvolverInterface::init(impulseResponse, irLength, blockLength)) != Error_t::kNoError) return ret;
 
     CFft::createInstance(pCFft);
-    pCFft->initInstance(2 * blockLength, 1, CFft::kWindowHann, CFft::kNoWindow);
+    pCFft->initInstance(doubleBlockLength, 1, CFft::kWindowHann, CFft::kNoWindow);
 
     // calculate the number of blocks of the impulse response
     this->blockLength = blockLength;
@@ -130,14 +138,7 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     IR_Freq = new CFft::complex_t* [m_IRNumBlock];
 
     // initialize buffer for temporary results
-    bufferReal = new CRingBuffer<CFft::complex_t>((m_IRNumBlock + 1) * blockLength);
-    bufferImag = new CRingBuffer<CFft::complex_t>((m_IRNumBlock + 1) * blockLength);
-
-    // pre-calculate the spectrogram of the impulse response
-    for (int i = 0; i < m_IRNumBlock; ++i) {
-        IR_Freq[i] = new CFft::complex_t[blockLength * 2];
-        pCFft->doFft(IR_Freq[i], impulseResponse + (i * blockLength));
-    }
+    buffer = new CRingBuffer<float>((m_IRNumBlock + 1) * blockLength);
 
     // initialize the temp spaces
     aReal = new float[blockLength + 1]; memset(aReal, 0, sizeof(float) * (blockLength + 1));
@@ -147,9 +148,19 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     bImag = new float[blockLength + 1]; memset(bImag, 0, sizeof(float) * (blockLength + 1));
     cImag = new float[blockLength + 1]; memset(cImag, 0, sizeof(float) * (blockLength + 1));
     temp  = new float[blockLength + 1]; memset(temp,  0, sizeof(float) * (blockLength + 1));
-    iFFTTemp = new float[blockLength * 2]; memset(iFFTTemp,  0, sizeof(float) * (blockLength * 2));
+    iFFTTemp = new float[doubleBlockLength]; memset(iFFTTemp,  0, sizeof(float) * (doubleBlockLength));
 
-    xFreq = new CFft::complex_t[blockLength * 2];
+    // allocate memory for frequency domain
+    X = new CFft::complex_t[doubleBlockLength];
+    X_origin = new CFft::complex_t[doubleBlockLength];
+
+    // pre-calculate the spectrogram of the impulse response
+    for (int i = 0; i < m_IRNumBlock; ++i) {
+        memset(iFFTTemp, 0, sizeof(float) * doubleBlockLength);
+        memcpy(iFFTTemp, impulseResponse + (i * blockLength), sizeof(float) * blockLength);
+        IR_Freq[i] = new CFft::complex_t[doubleBlockLength];
+        pCFft->doFft(IR_Freq[i], iFFTTemp);
+    }
 
     return Error_t::kNoError;
 }
@@ -163,42 +174,41 @@ Error_t UniformlyPartitionedFFTConvolver::reset() {
     delete[] aImag;
     delete[] bImag;
     delete[] cImag;
-    delete[] xFreq;
+    delete[] X;
     delete[] iFFTTemp;
     delete[] temp;
-    delete bufferReal;
-    delete bufferImag;
+    delete buffer;
     return Error_t::kNoError;
 }
 
 Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* input, int bufferLength) {
-    memset(iFFTTemp, 0, sizeof(float) * (blockLength * 2));
+    int doubleBlockLength = blockLength << 1;
+    memset(iFFTTemp, 0, sizeof(float) * doubleBlockLength);
     memcpy(iFFTTemp, input, sizeof(float) * bufferLength);
-    pCFft->doFft(xFreq, iFFTTemp);
+    pCFft->doFft(X_origin, iFFTTemp);
 
     // do convolution for each block on frequency domain
-    // for (int i = 0; i < m_IRNumBlock; ++i) {
-    //     __complexVectorMul_I(xFreq, IR_Freq[i]); // Y[i] = X[i] * H[i]
-    //     int offset = i * blockLength;
-    //     for (int j = 0; j < 2; ++j) {
-    //         float* currentBlockHeadReal = bufferReal->getHead(offset + j * blockLength);
-    //         float* currentBlockHeadImag = bufferImag->getHead(offset + j * blockLength);
-    //         CVectorFloat::add_I(currentBlockHeadReal, cReal + j * blockLength, blockLength);
-    //         CVectorFloat::add_I(currentBlockHeadImag, cImag + j * blockLength, blockLength);
-    //     }
-    // }
+    for (int i = 0; i < m_IRNumBlock; ++i) {
+        memcpy(X, X_origin, sizeof(CFft::complex_t) * doubleBlockLength);
+        __complexVectorMul_I(X, IR_Freq[i]); // Y[i] = X[i] * H[i]
+        pCFft->doInvFft(iFFTTemp, X);
+        CVectorFloat::mulC_I(iFFTTemp, doubleBlockLength, doubleBlockLength);
 
-    // // ringbuffer is updated thus xFreq can be overwritten
-    // float* currentBlockHeadReal = bufferReal->getHead(0);
-    // float* currentBlockHeadImag = bufferImag->getHead(0);
-    // pCFft->mergeRealImag(xFreq, currentBlockHeadReal, currentBlockHeadImag);
+        int offset = i * blockLength;
+        for (int j = 0; j < 2; ++j) {
+            float* currentBlockHead = buffer->getHead(offset + j * blockLength);
+            CVectorFloat::add_I(currentBlockHead, iFFTTemp + j * blockLength, blockLength);
+        }
+    }
 
-    pCFft->doInvFft(iFFTTemp, xFreq);
-    memcpy(output, iFFTTemp, sizeof(float) * bufferLength);
+    // ringbuffer is updated thus xFreq can be overwritten
+    memcpy(output, buffer->getHead(0), sizeof(float) * bufferLength);
+    memset(buffer->getHead(0), 0, sizeof(float) * bufferLength);
 
     // update read index for each buffer
-    bufferReal->setReadIdx(bufferReal->getReadIdx() + blockLength);
-    bufferImag->setReadIdx(bufferImag->getReadIdx() + blockLength);
+    buffer->setReadIdx(buffer->getReadIdx() + blockLength);
+
+    applyWetGain(output, bufferLength);
 
     return Error_t::kNoError;
 }
@@ -219,17 +229,19 @@ void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* a, 
     pCFft->splitRealImag(bReal, bImag, b);
 
     // c_r = a_r * b_r - a_i * b_i
-    CVectorFloat::copy(cReal, aReal, blockLength); 
-    CVectorFloat::mul_I(cReal, bReal, blockLength);
-    CVectorFloat::copy(cImag, aImag, blockLength);
-    CVectorFloat::mul_I(cImag, bImag, blockLength);
-    CVectorFloat::sub_I(cReal, cImag, blockLength);
+    CVectorFloat::copy(cReal, aReal,  blockLength + 1); 
+    CVectorFloat::mul_I(cReal, bReal, blockLength + 1);
+    CVectorFloat::copy(cImag, aImag,  blockLength + 1);
+    CVectorFloat::mul_I(cImag, bImag, blockLength + 1);
+    CVectorFloat::sub_I(cReal, cImag, blockLength + 1);
     
     // c_i = a_r * b_i + a_i * b_r
-    CVectorFloat::copy(cImag, aReal, blockLength);
-    CVectorFloat::mul_I(cImag, bImag, blockLength);
-    CVectorFloat::copy(temp, aImag, blockLength);
-    CVectorFloat::mul_I(temp, bReal, blockLength);
-    CVectorFloat::add_I(cImag, temp, blockLength);
+    CVectorFloat::copy(cImag, aReal,  blockLength + 1);
+    CVectorFloat::mul_I(cImag, bImag, blockLength + 1);
+    CVectorFloat::copy(temp, aImag,   blockLength + 1);
+    CVectorFloat::mul_I(temp, bReal,  blockLength + 1);
+    CVectorFloat::add_I(cImag, temp,  blockLength + 1);
+
+    pCFft->mergeRealImag(a, cReal, cImag);
 }
 

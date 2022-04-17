@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
     //     return -1;
     // }
     sInputFilePath = "fake_id.wav";
-    sIRFilePath = "IR_SHORT.wav";
+    sIRFilePath = "IR.wav";
     sOutputFilePath = "out.wav";
 
     ///////////////////////////////////////////////////////////////////////////
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
     ////////////////////////////////////////////////////////////////////////////
     impulseResponse.readData(impulseResponse.getNumSample());
     pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), kBlockSize, CFastConv::kFreqDomain);
-    pCFastConv->setWetGain(1.F);
+    pCFastConv->setWetGain(0.1f);
 
     ////////////////////////////////////////////////////////////////////////////
     // processing
