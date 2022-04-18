@@ -214,6 +214,9 @@ public:
         return m_iBuffLength;
     }
 
+    /*! returns the head of read index with offset
+    \return T*
+    */
     T* getHead(int iOffset) const {
         int iRead = m_iReadIdx + iOffset;
         while (iRead > m_iBuffLength - 1)
@@ -222,6 +225,14 @@ public:
             iRead += m_iBuffLength;
         return m_ptBuff + iRead;
     }
+
+    /*! returns the head of buffer
+    \return T*
+    */
+    T* begin() const {
+        return m_ptBuff;
+    }
+
 private:
     CRingBuffer();
     CRingBuffer(const CRingBuffer& that);

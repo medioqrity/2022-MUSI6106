@@ -61,8 +61,9 @@ public:
     Error_t process(float* output, const float* input, int bufferLength) override;
     Error_t flushBuffer(float *pfOutputBuffer) override;
 private:
+    int originIRLengthInSample = 0;
     int m_IRNumBlock = 0;
-    int blockLength = 0;
+    int m_blockLength = 0;
     CFft* pCFft = nullptr;
     CFft::complex_t* X = nullptr;
     CFft::complex_t* X_origin = nullptr;

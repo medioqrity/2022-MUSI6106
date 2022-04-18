@@ -209,6 +209,34 @@ namespace fastconv_test {
         delete[] input;
         delete[] output;
     }
+
+    TEST_F(FFTFastConv, flushbuffer) {
+        // initialize input signal, which is $\delta[n-3]$
+        int shift = 3;
+        int signalLength = 10;
+        float* input = new float[signalLength]; // make the input signal 10 samples long
+        memset(input, 0, sizeof(float) * signalLength); // an impulse as input signal at sample index 3
+        input[shift] = 1.F;
+
+        // initialize output signal
+        float* output = new float[IRLength];
+        memset(output, 0, sizeof(float) * IRLength);
+
+        // process & discard result
+        m_pCFastConv->process(output, input, signalLength);
+        memset(output, 0, sizeof(float) * IRLength);
+
+        // flush
+        m_pCFastConv->flushBuffer(output);
+
+        // check if the tail is correct
+        for (int i = 0; i + signalLength - shift < IRLength; ++i) {
+            EXPECT_NEAR(output[i], IR[i + signalLength - shift], 1e-6);
+        }
+
+        delete[] input;
+        delete[] output;
+    }
 }
 
 #endif //WITH_TESTS
