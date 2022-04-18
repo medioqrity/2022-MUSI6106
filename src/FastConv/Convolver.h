@@ -76,6 +76,8 @@ private:
     float* temp, *iFFTTemp;
 
     void __complexVectorMul_I(CFft::complex_t* a, const CFft::complex_t* b);
+    void __flushRingBufferToOutput(float* output, int length);
+    void __flushRingBufferToOutputWithNoCheck(float* output, int length);
 };
 
 

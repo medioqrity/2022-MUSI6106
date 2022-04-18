@@ -206,29 +206,7 @@ Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* in
     }
 
     // update output using ringbuffer buffer
-    // notice that bufferLength is not essentially blockLength... (caused by input block with 
-    // length not divisible by blockLength) thus the head is not always located at the 
-    // beginning of the block in buffer. We need to deal with that.
-    auto head = buffer->getHead(0);
-    auto index = head - buffer->begin();
-
-    // overflow, we need to cpy & set two memory region
-    if (index + bufferLength >= buffer->getLength()) {
-        // index + bufferLength < getLength() + blockLength
-        auto restLength = (buffer->getLength() - index);
-        memcpy(output, head, sizeof(float) * restLength);
-        memset(head, 0, sizeof(float) * restLength);
-        buffer->setReadIdx(buffer->getReadIdx() + restLength);
-        head = buffer->begin();
-        bufferLength -= static_cast<int>(restLength);
-    }
-    
-    // now we are confident that index + bufferLength < buffer->getLength()
-    memcpy(output, head, sizeof(float) * bufferLength);
-    memset(head, 0, sizeof(float) * bufferLength);
-
-    // update read index for each buffer
-    buffer->setReadIdx(buffer->getReadIdx() + bufferLength);
+    __flushRingBufferToOutput(output, bufferLength);
 
     applyWetGain(output, bufferLength);
 
@@ -240,7 +218,7 @@ Error_t UniformlyPartitionedFFTConvolver::flushBuffer(float *pfOutputBuffer) {
         memcpy(
             pfOutputBuffer + i * m_blockLength, 
             buffer->getHead(i * m_blockLength), 
-            sizeof(float) * std::min(m_blockLength, originIRLengthInSample - i * m_blockLength)
+            sizeof(float) * std::min(m_blockLength, originIRLengthInSample - 1 - i * m_blockLength)
         );
     }
     return Error_t::kNoError;
@@ -265,5 +243,29 @@ void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* a, 
     CVectorFloat::add_I(cImag, temp,  m_blockLength + 1);
 
     pCFft->mergeRealImag(a, cReal, cImag);
+}
+void UniformlyPartitionedFFTConvolver::__flushRingBufferToOutput(float* output, int length) {
+    // notice that bufferLength is not essentially blockLength... (caused by input block with 
+    // length not divisible by blockLength) thus the head is not always located at the 
+    // beginning of the block in buffer. We need to deal with that.
+
+    auto head = buffer->getHead(0);
+    auto index = head - buffer->begin();
+
+    // overflow, we need to cpy & set two memory region
+    if (index + length >= buffer->getLength()) {
+        auto restLength = (buffer->getLength() - index);
+        __flushRingBufferToOutputWithNoCheck(output, restLength);
+        length -= restLength;
+    }
+
+    __flushRingBufferToOutputWithNoCheck(output, length);
+}
+
+void UniformlyPartitionedFFTConvolver::__flushRingBufferToOutputWithNoCheck(float* output, int length) {
+    auto head = buffer->getHead(0);
+    memcpy(output, head, sizeof(float) * length);
+    memset(head, 0, sizeof(float) * length);
+    buffer->setReadIdx(buffer->getReadIdx() + length);
 }
 
