@@ -253,8 +253,7 @@ int main(int argc, char* argv[])
                             sIRFilePath,
                             sOutputFilePath;
 
-    float                       fModFrequencyInHz;
-    float                       fModWidthInSec;
+    auto start = std::chrono::steady_clock::now();
 
     CFastConv* pCFastConv = new CFastConv();
 
@@ -276,8 +275,6 @@ int main(int argc, char* argv[])
 
     int iNumFrames = args.blockSize;
 
-    auto start = std::chrono::steady_clock::now();
-
     ////////////////////////////////////////////////////////////////////////////
     // processing
     while (!inputAudio.isEof())
@@ -298,7 +295,7 @@ int main(int argc, char* argv[])
 
     auto end = std::chrono::steady_clock::now();
 
-    cout << "\nreading/writing done in: \t" << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() << "ns." << endl;
+    cout << "\nreading/writing done in: \t" << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() << " ns." << endl;
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up
