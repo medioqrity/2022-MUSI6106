@@ -200,8 +200,7 @@ Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* in
 
         int offset = i * m_blockLength;
         for (int j = 0; j < 2; ++j) {
-            float* currentBlockHead = buffer->getHead(offset + j * m_blockLength);
-            CVectorFloat::add_I(currentBlockHead, iFFTTemp + j * m_blockLength, m_blockLength);
+            __addToRingBuffer(buffer->getHead(offset + j * m_blockLength), iFFTTemp + j * m_blockLength, m_blockLength);
         }
     }
 
@@ -244,17 +243,31 @@ void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* a, 
 
     pCFft->mergeRealImag(a, cReal, cImag);
 }
+
+void UniformlyPartitionedFFTConvolver::__addToRingBuffer(float* bufferHead, float* data, int length) {
+    auto headIndex = bufferHead - buffer->begin();
+    if (headIndex + length >= buffer->getLength()) {
+        auto restLength = (buffer->getLength() - headIndex);
+        CVectorFloat::add_I(bufferHead, data, restLength);
+
+        length -= restLength;
+        data += restLength;
+        bufferHead = buffer->getHead(0);
+    }
+
+    CVectorFloat::add_I(bufferHead, data, length);
+}
+
 void UniformlyPartitionedFFTConvolver::__flushRingBufferToOutput(float* output, int length) {
     // notice that bufferLength is not essentially blockLength... (caused by input block with 
     // length not divisible by blockLength) thus the head is not always located at the 
     // beginning of the block in buffer. We need to deal with that.
 
-    auto head = buffer->getHead(0);
-    auto index = head - buffer->begin();
+    auto headIndex = buffer->getReadIdx();
 
     // overflow, we need to cpy & set two memory region
-    if (index + length >= buffer->getLength()) {
-        auto restLength = (buffer->getLength() - index);
+    if (headIndex + length >= buffer->getLength()) {
+        auto restLength = (buffer->getLength() - headIndex);
         __flushRingBufferToOutputWithNoCheck(output, restLength);
         length -= restLength;
     }
