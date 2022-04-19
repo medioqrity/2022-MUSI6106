@@ -15,6 +15,96 @@ using std::endl;
 // local function declarations
 void    showClInfo();
 
+typedef struct ConvolverArgs {
+    CFastConv::ConvCompMode_t convolver = CFastConv::ConvCompMode_t::kTimeDomain;
+    float wetGain = 0.1f;
+    int blockSize = 2048;
+    std::string inputPath = "fake_id.wav";
+    std::string IRPath = "fake_id.wav";
+    std::string outputPath = "out.wav";
+} ConvolverArgs_t;
+
+void printUsage() {
+    std::printf("Usage: MUSI6106Exec.exe [option]\n\n");
+    std::printf("Options and arguments:\n");
+    std::printf("-t: The type of convolver to use. There are two choices available: time or freq.\n");
+    std::printf("    -t time: use time domain filter. WARNING: SUPER SLOW!\n");
+    std::printf("    -t freq: use frequency domain (fft-based) filter.\n");
+    std::printf("-g: The gain parameter for the filter. \n");
+    std::printf("    -g <gain>: set the wet gain of the convolved signal.\n");
+    std::printf("-b: The internal FFT size.\n");
+    std::printf("    -o <size>: set the internal FFT size when doing convolution. This option will have no\n");
+    std::printf("               effect when the convolver is time domain filter.\n");
+    std::printf("-i: The path to input wave file.\n");
+    std::printf("    -i <path>: load the wave file of <path>. Notice you need to include filename.\n");
+    std::printf("-r: The path to impulse response wave file.\n");
+    std::printf("    -r <path>: load the impulse response at <path>. Notice you need to include filename.\n");
+    std::printf("-o: The path to output wave file.\n");
+    std::printf("    -o <path>: write the filtered signal into <path>. Notice you need to include filename\n");
+    std::printf("-h --help: print this help message.\n");
+    std::printf("Examples:\n");
+    std::printf("- Read 'fake_id.wav' and convolve with `IR.wav` using FFT convolver, with wet gain 0.1,\n");
+    std::printf("  FFT size 16384, write the filtered signal into 'out.wav':\n");
+    std::printf("  `MUSI6106Exec.exe -t freq -g 0.1 -b 16384 -i fake_id.wav -r IR.wav -o out.wav`\n");
+    std::printf("- Display this help:\n");
+    std::printf("  `MUSI6106Exec.exe -h`\n");
+    std::printf("  or\n");
+    std::printf("  `MUSI6106Exec.exe --help`\n");
+}
+
+/*
+Simple command line argument parser.
+*/
+ConvolverArgs_t parseArg(int argc, char** argv) {
+    ConvolverArgs_t result;
+    for (int i = 0; i < argc; ++i) {
+        if (argv[i][0] == '-') { /* this is an argument */
+            if (argv[i][1] == 't') {
+                if (i == argc - 1) throw(std::invalid_argument("Incomplete argument of comb filter type!"));
+                ++i;
+                if (!strcmp(argv[i], "time")) {
+                    result.convolver = CFastConv::ConvCompMode_t::kTimeDomain;
+                }
+                else if (!strcmp(argv[i], "freq")) {
+                    result.convolver = CFastConv::ConvCompMode_t::kFreqDomain;
+                }
+                else {
+                    throw(std::invalid_argument("unknown argument!"));
+                }
+            }
+            else if (argv[i][1] == 'g') {
+                if (i == argc - 1) throw(std::invalid_argument("Incomplete argument of wet gain!"));
+                result.wetGain = std::stof(argv[++i]);
+            }
+            else if (argv[i][1] == 'b') {
+                if (i == argc - 1) throw(std::invalid_argument("Incomplete argument of block size!"));
+                result.blockSize = std::stoi(argv[++i]);
+            }
+            else if (argv[i][1] == 'i') {
+                if (i == argc - 1) throw(std::invalid_argument("Incomplete argument of input file path!"));
+                result.inputPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'r') {
+                if (i == argc - 1) throw(std::invalid_argument("Incomplete argument of IR file path!"));
+                result.IRPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'o') {
+                if (i == argc - 1) throw(std::invalid_argument("Incomplete argument of output file path!"));
+                result.outputPath = std::string(argv[++i]);
+            }
+            else if (argv[i][1] == 'h' || !strcmp(argv[i], "--help")) {
+                printUsage();
+                exit(0);
+            }
+            else {
+                throw(std::invalid_argument("unknown argument!"));
+            }
+        }
+    }
+    return result;
+}
+
+
 /*
     This class hides unimportant low-level details like:
         - Two phase initialization / deletion of `CAudioFileIf`
@@ -163,9 +253,6 @@ int main(int argc, char* argv[])
                             sIRFilePath,
                             sOutputFilePath;
 
-    static const int            kBlockSize = 1024;
-    long long                   iNumFrames = kBlockSize;
-
     float                       fModFrequencyInHz;
     float                       fModWidthInSec;
 
@@ -176,24 +263,22 @@ int main(int argc, char* argv[])
     showClInfo();
 
     // command line args
-    // if (argc != 4)
-    // {
-    //     cout << "Incorrect number of arguments!" << endl;
-    //     return -1;
-    // }
-    sInputFilePath = "fake_id.wav";
-    sIRFilePath = "IR.wav";
-    sOutputFilePath = "out.wav";
+    ConvolverArgs_t args = parseArg(argc, argv);
+    sInputFilePath = args.inputPath;
+    sIRFilePath = args.IRPath;
+    sOutputFilePath = args.outputPath;
 
     ///////////////////////////////////////////////////////////////////////////
-    AudioFileWrapper inputAudio(sInputFilePath, kBlockSize, CAudioFileIf::kFileRead);
+    AudioFileWrapper inputAudio(sInputFilePath, args.blockSize, CAudioFileIf::kFileRead);
     AudioFileWrapper impulseResponse(sIRFilePath, -1, CAudioFileIf::kFileRead);
-    AudioFileWrapper outputAudio(sOutputFilePath, kBlockSize, CAudioFileIf::kFileWrite, inputAudio.getFileSpec());
+    AudioFileWrapper outputAudio(sOutputFilePath, args.blockSize, CAudioFileIf::kFileWrite, inputAudio.getFileSpec());
 
     ////////////////////////////////////////////////////////////////////////////
     impulseResponse.readData(impulseResponse.getNumSample());
-    pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), kBlockSize, CFastConv::kFreqDomain);
-    pCFastConv->setWetGain(0.1f);
+    pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), args.blockSize, args.convolver);
+    pCFastConv->setWetGain(args.wetGain);
+
+    int iNumFrames = args.blockSize;
 
     ////////////////////////////////////////////////////////////////////////////
     // processing
