@@ -61,14 +61,14 @@ public:
     Error_t process(float* output, const float* input, int bufferLength) override;
     Error_t flushBuffer(float *pfOutputBuffer) override;
 private:
-    int originIRLengthInSample = 0;
+    int m_originIRLengthInSample = 0;
     int m_IRNumBlock = 0;
     int m_blockLength = 0;
-    CFft* pCFft = nullptr;
-    CFft::complex_t* X = nullptr;
-    CFft::complex_t* X_origin = nullptr;
-    CFft::complex_t** IR_Freq = nullptr; // might be multiple blocks
-    CRingBuffer<float>* buffer = nullptr;
+    CFft* m_pCFft = nullptr;
+    CFft::complex_t* m_X = nullptr;
+    CFft::complex_t* m_X_origin = nullptr;
+    CFft::complex_t** m_H = nullptr; // might be multiple blocks
+    CRingBuffer<float>* m_buffer = nullptr;
 
     // temporal variables that are useful for calculation
     float* aReal, *bReal, *cReal;
@@ -76,6 +76,8 @@ private:
     float* temp, *iFFTTemp;
 
     void __complexVectorMul_I(CFft::complex_t* a, const CFft::complex_t* b);
+
+    void __processOneBlock(float* output, const float* input, int bufferLength);
 
     void __addToRingBuffer(float* bufferHead, float* data, int length);
 

@@ -237,6 +237,45 @@ namespace fastconv_test {
         delete[] input;
         delete[] output;
     }
+
+    TEST_F(FFTFastConv, varyingBlockSize) {
+        // initialize input signal, which is $\delta[n-3]$
+        int shift = 3;
+        int signalLength = 10000;
+        float* input = new float[signalLength]; // make the input signal 10 samples long
+        memset(input, 0, sizeof(float) * signalLength); // an impulse as input signal at sample index 3
+        input[shift] = 1.F;
+
+        // initialize output signal
+        float* output = new float[signalLength];
+        memset(output, 0, sizeof(float) * signalLength);
+
+        // convolve with varying block size
+        int blockLengths[] = {
+            1, 13, 1023, 2048, 1, 17, 5000, 1897
+        };
+        for (int i = 0, accu = 0; i < 8; accu += blockLengths[i++]) {
+            m_pCFastConv->process(output + accu, input + accu, blockLengths[i]);
+        }
+
+        // check if the output signal is exactly the same with the impulse response
+        for (int i = 0; i < IRLength && i + shift < signalLength; ++i) {
+            EXPECT_NEAR(IR[i], output[i + shift], 1e-6);
+        }
+
+        // also check if the first three are ok
+        for (int i = 0; i < shift; ++i) {
+            EXPECT_NEAR(output[i], 0, 1e-6);
+        }
+
+        // also check if tails are all zero
+        for (int i = IRLength + shift; i < signalLength; ++i) {
+            EXPECT_NEAR(output[i], 0, 1e-6);
+        }
+
+        delete[] input;
+        delete[] output;
+    }
 }
 
 #endif //WITH_TESTS
