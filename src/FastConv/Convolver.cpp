@@ -99,14 +99,14 @@ Error_t TrivialFIRConvolver::process(float* output, const float* input, int buff
 }
 
 Error_t TrivialFIRConvolver::flushBuffer(float* output) {
-    for (int i = 0; i < m_IRLength; ++i) {
+    for (int i = 0; i < m_IRLength - 1; ++i) {
         m_buffer->putPostInc(0.F);
         for (int j = 0; j < m_IRLength; ++j) {
             output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
         }
         m_buffer->getPostInc();
     }
-    applyWetGain(output, m_IRLength);
+    applyWetGain(output, m_IRLength - 1);
     return Error_t::kNoError;
 }
 
@@ -234,6 +234,7 @@ Error_t UniformlyPartitionedFFTConvolver::flushBuffer(float *pfOutputBuffer) {
             sizeof(float) * std::min(m_blockLength, m_originIRLengthInSample - 1 - i * m_blockLength)
         );
     }
+    applyWetGain(pfOutputBuffer, m_originIRLengthInSample - 1);
     return Error_t::kNoError;
 }
 

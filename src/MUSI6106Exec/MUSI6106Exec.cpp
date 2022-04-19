@@ -206,20 +206,20 @@ int main(int argc, char* argv[])
     }
 
     // flush remaining
-    // float* remain = new float[impulseResponse.getNumSample()];
-    // memset(remain, 0, sizeof(float) * impulseResponse.getNumSample());
-    // pCFastConv->flushBuffer(remain);
+    float* remain = new float[impulseResponse.getNumSample() - 1];
+    memset(remain, 0, sizeof(float) * (impulseResponse.getNumSample() - 1));
+    pCFastConv->flushBuffer(remain);
     // and write remaining to output
     // it's ugly but currently no more elegant way to work around this
-    // auto outputAudioFile = outputAudio.getAudioFile();
-    // outputAudioFile->writeData(&remain, impulseResponse.getNumSample());
+    auto outputAudioFile = outputAudio.getAudioFile();
+    outputAudioFile->writeData(&remain, impulseResponse.getNumSample() - 1);
 
     cout << "\nreading/writing done in: \t" << (clock() - time) * 1.F / CLOCKS_PER_SEC << " seconds." << endl;
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up
     delete pCFastConv;
-    // delete[] remain;
+    delete[] remain;
 
     // all done
     return 0;
