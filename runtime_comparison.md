@@ -1,8 +1,8 @@
 ## Runtime (with convolver initialization time included)
 
-We run 5 experiments for each convolver settings. We test time domain FIR convolver, frequency domain FFT convolver with block size 1024, 2048, 4096, 8192, and 16384. We use `chrono::steady_clock` to evaluate runtime more accurately than `ctime`. The runtime unit is nanosecond (1e-9s).
+We run 5 experiments for each convolver settings. We test time domain FIR convolver, frequency domain FFT convolver with block size 1024, 2048, 4096, 8192, and 16384. We use `std::chrono::steady_clock` to evaluate runtime more accurately than `ctime`. The runtime unit is nanosecond (1e-9s).
 
-We run all 25 experiments on the same input file (1028361 samples) and IR file (214016 samples).
+We run all 30 experiments on the same input file (1028361 samples) and IR file (214016 samples).
 
 The experiment raw data is listed below:
 
@@ -23,10 +23,10 @@ Notice that the y-axis is $\log_2$ scale. Compared with time domain convolution,
 
 ## Some observations
 
-Under $\log_2$ scale, runtime between FFT with exponentially increasing block appears to be linearly decreasing. That is to say, doubling block size approximately halves the runtime.
+Under $\log_2$ scale, runtime between FFT with exponentially increasing block appears to be exponentially decreasing. That is to say, doubling block size approximately halves the runtime.
 
 If we perform linear regression on FFT part data, we have
 
 ![fig2](fig2.png)
 
-The exponential part ($e^{-0.502x}$) clearly supports the previous observation that doubling block size approximately halves the runtime. If we run FFT with block size = 2, we should have approximately the same runtime with the time domain convolution.
+The exponential part ($e^{-0.502x}$) clearly supports the previous observation that doubling block size approximately halves (actually ~0.605) the runtime. If we run FFT with block size = 2, we should have approximately the same runtime with the time domain convolution.
