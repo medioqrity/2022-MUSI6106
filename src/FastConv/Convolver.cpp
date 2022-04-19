@@ -115,10 +115,7 @@ UniformlyPartitionedFFTConvolver::UniformlyPartitionedFFTConvolver(float* impuls
 }
 
 UniformlyPartitionedFFTConvolver::~UniformlyPartitionedFFTConvolver() {
-    // reset();
-    // pCFft->resetInstance();
-    // CFft::destroyInstance(pCFft);
-    // pCFft = nullptr;
+    reset();
 }
 
 Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLength, int blockLength) {
@@ -169,18 +166,25 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
 }
 
 Error_t UniformlyPartitionedFFTConvolver::reset() {
-    for (int i = 0; i < m_IRNumBlock; ++i) delete[] m_H[i];
-    delete[] m_H;
+    for (int i = 0; i < m_IRNumBlock; ++i) delete[] m_H[i]; delete[] m_H;
+    delete[] m_X;
+
     delete[] aReal;
     delete[] bReal;
     delete[] cReal;
     delete[] aImag;
     delete[] bImag;
     delete[] cImag;
-    delete[] m_X;
+
     delete[] iFFTTemp;
     delete[] temp;
+
     delete m_buffer;
+
+    m_pCFft->resetInstance();
+    CFft::destroyInstance(m_pCFft);
+    m_pCFft = nullptr;
+
     return Error_t::kNoError;
 }
 
