@@ -1,7 +1,7 @@
 
 #include <iostream>
-#include <ctime>
 #include <cassert>
+#include <chrono>
 
 #include "MUSI6106Config.h"
 
@@ -256,11 +256,7 @@ int main(int argc, char* argv[])
     float                       fModFrequencyInHz;
     float                       fModWidthInSec;
 
-    clock_t                     time = 0;
-
     CFastConv* pCFastConv = new CFastConv();
-
-    showClInfo();
 
     // command line args
     ConvolverArgs_t args = parseArg(argc, argv);
@@ -280,11 +276,12 @@ int main(int argc, char* argv[])
 
     int iNumFrames = args.blockSize;
 
+    auto start = std::chrono::steady_clock::now();
+
     ////////////////////////////////////////////////////////////////////////////
     // processing
     while (!inputAudio.isEof())
     {
-        printf("%lld\n", inputAudio.getHead());
         inputAudio.readData(iNumFrames);
         pCFastConv->process(outputAudio.getBuffer()[0], inputAudio.getBuffer()[0], iNumFrames);
         outputAudio.writeData(iNumFrames);
@@ -299,7 +296,9 @@ int main(int argc, char* argv[])
     auto outputAudioFile = outputAudio.getAudioFile();
     outputAudioFile->writeData(&remain, impulseResponse.getNumSample() - 1);
 
-    cout << "\nreading/writing done in: \t" << (clock() - time) * 1.F / CLOCKS_PER_SEC << " seconds." << endl;
+    auto end = std::chrono::steady_clock::now();
+
+    cout << "\nreading/writing done in: \t" << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() << "ns." << endl;
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up
