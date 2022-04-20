@@ -253,8 +253,6 @@ int main(int argc, char* argv[])
                             sIRFilePath,
                             sOutputFilePath;
 
-    auto start = std::chrono::steady_clock::now();
-
     CFastConv* pCFastConv = new CFastConv();
 
     // command line args
@@ -274,13 +272,18 @@ int main(int argc, char* argv[])
     pCFastConv->setWetGain(args.wetGain);
 
     int iNumFrames = args.blockSize;
+    long long processDuration = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // processing
     while (!inputAudio.isEof())
     {
         inputAudio.readData(iNumFrames);
+
+        auto start = std::chrono::steady_clock::now();
         pCFastConv->process(outputAudio.getBuffer()[0], inputAudio.getBuffer()[0], iNumFrames);
+        processDuration += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+
         outputAudio.writeData(iNumFrames);
     }
 
@@ -293,9 +296,8 @@ int main(int argc, char* argv[])
     auto outputAudioFile = outputAudio.getAudioFile();
     outputAudioFile->writeData(&remain, impulseResponse.getNumSample() - 1);
 
-    auto end = std::chrono::steady_clock::now();
 
-    cout << "\nreading/writing done in: \t" << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() << " ns." << endl;
+    cout << "Accumulated processing time: \t" << processDuration << " ns." << endl;
 
     //////////////////////////////////////////////////////////////////////////////
     // clean-up
