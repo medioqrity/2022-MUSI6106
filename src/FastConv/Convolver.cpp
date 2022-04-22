@@ -135,17 +135,16 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     if (irLength % blockLength) ++m_IRNumBlock;
 
     // allocate memory to store the spectrogram of the impulse response
-    m_H = new CFft::complex_t* [m_IRNumBlock];
+    m_H_real = new float* [m_IRNumBlock];
+    m_H_imag = new float* [m_IRNumBlock];
 
     // initialize buffer for temporary results
     m_buffer = new CRingBuffer<float>((m_IRNumBlock + 1) * blockLength);
 
     // initialize the temp spaces
     aReal = new float[blockLength + 1]; memset(aReal, 0, sizeof(float) * (blockLength + 1));
-    bReal = new float[blockLength + 1]; memset(bReal, 0, sizeof(float) * (blockLength + 1));
     cReal = new float[blockLength + 1]; memset(cReal, 0, sizeof(float) * (blockLength + 1));
     aImag = new float[blockLength + 1]; memset(aImag, 0, sizeof(float) * (blockLength + 1));
-    bImag = new float[blockLength + 1]; memset(bImag, 0, sizeof(float) * (blockLength + 1));
     cImag = new float[blockLength + 1]; memset(cImag, 0, sizeof(float) * (blockLength + 1));
     temp  = new float[blockLength + 1]; memset(temp,  0, sizeof(float) * (blockLength + 1));
     iFFTTemp = new float[doubleBlockLength]; memset(iFFTTemp,  0, sizeof(float) * (doubleBlockLength));
@@ -154,26 +153,38 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     m_X = new CFft::complex_t[doubleBlockLength];
     m_X_origin = new CFft::complex_t[doubleBlockLength];
 
+    // temporary variable for blocked IR freq representatie for blocked IR freq representation
+    auto m_H = new CFft::complex_t[doubleBlockLength];
+
     // pre-calculate the spectrogram of the impulse response
     for (int i = 0; i < m_IRNumBlock; ++i) {
+        m_H_real[i] = new float[blockLength + 1]; memset(m_H_real[i], 0, sizeof(float) * (blockLength + 1));
+        m_H_imag[i] = new float[blockLength + 1]; memset(m_H_imag[i], 0, sizeof(float) * (blockLength + 1));
+
         memset(iFFTTemp, 0, sizeof(float) * doubleBlockLength);
         memcpy(iFFTTemp, impulseResponse + (i * blockLength), sizeof(float) * std::min(blockLength, m_originIRLengthInSample - i * blockLength));
-        m_H[i] = new CFft::complex_t[doubleBlockLength];
-        m_pCFft->doFft(m_H[i], iFFTTemp);
+
+        m_pCFft->doFft(m_H, iFFTTemp);
+        m_pCFft->splitRealImag(m_H_real[i], m_H_imag[i], m_H);
     }
+
+    delete[] m_H;
 
     return Error_t::kNoError;
 }
 
 Error_t UniformlyPartitionedFFTConvolver::reset() {
-    for (int i = 0; i < m_IRNumBlock; ++i) delete[] m_H[i]; delete[] m_H;
+    for (int i = 0; i < m_IRNumBlock; ++i) {
+        delete[] m_H_real[i];
+        delete[] m_H_imag[i];
+    }
+    delete[] m_H_real;
+    delete[] m_H_imag;
     delete[] m_X;
 
     delete[] aReal;
-    delete[] bReal;
     delete[] cReal;
     delete[] aImag;
-    delete[] bImag;
     delete[] cImag;
 
     delete[] iFFTTemp;
@@ -210,7 +221,7 @@ void UniformlyPartitionedFFTConvolver::__processOneBlock(float* output, const fl
     // do convolution for each block on frequency domain
     for (int i = 0; i < m_IRNumBlock; ++i) {
         memcpy(m_X, m_X_origin, sizeof(CFft::complex_t) * doubleBlockLength);
-        __complexVectorMul_I(m_X, m_H[i]); // Y[i] = X[i] * H[i]
+        __complexVectorMul_I(m_X, m_H_real[i], m_H_imag[i]); // Y[i] = X[i] * H[i], but &Y == &X
         m_pCFft->doInvFft(iFFTTemp, m_X);
         CVectorFloat::mulC_I(iFFTTemp, static_cast<float>(doubleBlockLength), doubleBlockLength);
 
@@ -238,10 +249,15 @@ Error_t UniformlyPartitionedFFTConvolver::flushBuffer(float *pfOutputBuffer) {
     return Error_t::kNoError;
 }
 
-void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* a, const CFft::complex_t* b) {
-    m_pCFft->splitRealImag(aReal, aImag, a);
-    m_pCFft->splitRealImag(bReal, bImag, b);
+void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* A, const float* bReal, const float* bImag) {
+    m_pCFft->splitRealImag(aReal, aImag, A);
 
+    __complexVectorMul_I(aReal, aImag, bReal, bImag);
+
+    m_pCFft->mergeRealImag(A, cReal, cImag);
+}
+
+void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag) {
     // c_r = a_r * b_r - a_i * b_i
     CVectorFloat::copy(cReal, aReal,  m_blockLength + 1); 
     CVectorFloat::mul_I(cReal, bReal, m_blockLength + 1);
@@ -255,8 +271,6 @@ void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* a, 
     CVectorFloat::copy(temp, aImag,   m_blockLength + 1);
     CVectorFloat::mul_I(temp, bReal,  m_blockLength + 1);
     CVectorFloat::add_I(cImag, temp,  m_blockLength + 1);
-
-    m_pCFft->mergeRealImag(a, cReal, cImag);
 }
 
 void UniformlyPartitionedFFTConvolver::__addToRingBuffer(float* bufferHead, float* data, int length) {

@@ -67,15 +67,18 @@ private:
     CFft* m_pCFft = nullptr;
     CFft::complex_t* m_X = nullptr;
     CFft::complex_t* m_X_origin = nullptr;
-    CFft::complex_t** m_H = nullptr; // might be multiple blocks
+    // CFft::complex_t** m_H = nullptr; // might be multiple blocks
+    float** m_H_real = nullptr;
+    float** m_H_imag = nullptr;
     CRingBuffer<float>* m_buffer = nullptr;
 
     // temporal variables that are useful for calculation
-    float* aReal, *bReal, *cReal;
-    float* aImag, *bImag, *cImag;
+    float* aReal, *cReal;
+    float* aImag, *cImag;
     float* temp, *iFFTTemp;
 
-    void __complexVectorMul_I(CFft::complex_t* a, const CFft::complex_t* b);
+    void __complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag);
+    void __complexVectorMul_I(CFft::complex_t* A, const float* bReal, const float* bImag);
 
     void __processOneBlock(float* output, const float* input, int bufferLength);
 
