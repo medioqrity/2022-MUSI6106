@@ -64,6 +64,7 @@ private:
     int m_originIRLengthInSample = 0;
     int m_IRNumBlock = 0;
     int m_blockLength = 0;
+    int m_blockLengthPlusOne = 0;
     CFft* m_pCFft = nullptr;
     CFft::complex_t* m_X = nullptr;
     CFft::complex_t* m_X_origin = nullptr;
@@ -73,8 +74,8 @@ private:
     CRingBuffer<float>* m_buffer = nullptr;
 
     // temporal variables that are useful for calculation
-    float* aReal, *cReal;
-    float* aImag, *cImag;
+    float* aReal, *cReal, *aReal_bReal;
+    float* aImag, *cImag, *aImag_bImag;
     float* temp, *iFFTTemp;
 
     void __complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag);
