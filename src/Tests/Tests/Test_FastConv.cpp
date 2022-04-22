@@ -43,7 +43,7 @@ namespace fastconv_test {
 
         virtual void TearDown()
         {
-            m_pCFastConv->reset();
+            delete m_pCFastConv;
             delete[] IR;
         }
 
@@ -172,7 +172,7 @@ namespace fastconv_test {
 
         virtual void TearDown()
         {
-            m_pCFastConv->reset();
+            delete m_pCFastConv;
             delete[] IR;
         }
 
