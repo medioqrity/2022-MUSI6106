@@ -143,13 +143,14 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     m_buffer = new CRingBuffer<float>((m_IRNumBlock + 1) * blockLength);
 
     // initialize the temp spaces
-    aReal = new float[blockLength + 1]; memset(aReal, 0, sizeof(float) * (blockLength + 1));
-    cReal = new float[blockLength + 1]; memset(cReal, 0, sizeof(float) * (blockLength + 1));
-    aImag = new float[blockLength + 1]; memset(aImag, 0, sizeof(float) * (blockLength + 1));
-    cImag = new float[blockLength + 1]; memset(cImag, 0, sizeof(float) * (blockLength + 1));
-    temp  = new float[blockLength + 1]; memset(temp,  0, sizeof(float) * (blockLength + 1));
-    aReal_bReal = new float[blockLength + 1]; memset(aReal_bReal,  0, sizeof(float) * (blockLength + 1));
-    aImag_bImag = new float[blockLength + 1]; memset(aImag_bImag,  0, sizeof(float) * (blockLength + 1));
+    aReal =       new float[m_blockLengthPlusOne]; memset(aReal,        0, sizeof(float) * (m_blockLengthPlusOne));
+    cReal =       new float[m_blockLengthPlusOne]; memset(cReal,        0, sizeof(float) * (m_blockLengthPlusOne));
+    aImag =       new float[m_blockLengthPlusOne]; memset(aImag,        0, sizeof(float) * (m_blockLengthPlusOne));
+    cImag =       new float[m_blockLengthPlusOne]; memset(cImag,        0, sizeof(float) * (m_blockLengthPlusOne));
+    temp  =       new float[m_blockLengthPlusOne]; memset(temp,         0, sizeof(float) * (m_blockLengthPlusOne));
+    aReal_bReal = new float[m_blockLengthPlusOne]; memset(aReal_bReal,  0, sizeof(float) * (m_blockLengthPlusOne));
+    aImag_bImag = new float[m_blockLengthPlusOne]; memset(aImag_bImag,  0, sizeof(float) * (m_blockLengthPlusOne));
+
     iFFTTemp = new float[doubleBlockLength]; memset(iFFTTemp,  0, sizeof(float) * (doubleBlockLength));
 
     // allocate memory for frequency domain
@@ -161,8 +162,8 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
 
     // pre-calculate the spectrogram of the impulse response
     for (int i = 0; i < m_IRNumBlock; ++i) {
-        m_H_real[i] = new float[blockLength + 1]; memset(m_H_real[i], 0, sizeof(float) * (blockLength + 1));
-        m_H_imag[i] = new float[blockLength + 1]; memset(m_H_imag[i], 0, sizeof(float) * (blockLength + 1));
+        m_H_real[i] = new float[m_blockLengthPlusOne]; memset(m_H_real[i], 0, sizeof(float) * (m_blockLengthPlusOne));
+        m_H_imag[i] = new float[m_blockLengthPlusOne]; memset(m_H_imag[i], 0, sizeof(float) * (m_blockLengthPlusOne));
 
         memset(iFFTTemp, 0, sizeof(float) * doubleBlockLength);
         memcpy(iFFTTemp, impulseResponse + (i * blockLength), sizeof(float) * std::min(blockLength, m_originIRLengthInSample - i * blockLength));
