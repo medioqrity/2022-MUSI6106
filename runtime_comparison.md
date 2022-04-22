@@ -2,7 +2,19 @@
 
 We run 10 experiments for each convolver settings. We test time domain FIR convolver, frequency domain FFT convolver with block size 256, 512, 1024, 2048, 4096, 8192, 16384, and 32768. We use `std::chrono::steady_clock` to evaluate runtime more accurately than `ctime`. The runtime unit is nanosecond (1e-9s).
 
-We run all 90 experiments on the same input file (1028361 samples) and IR file (214016 samples) on the same computer with no other system load.
+We run all 90 experiments on the same input file (1028361 samples) and IR file (214016 samples) on the same computer (CPU: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz; System: Windows 10 build 19043.1645) with no other system load. The executable is compiled using `x86_64 release` configuration with `-O3` optimization flag enabled. The commands used in all experiments are listed below:
+
+```bash
+$ ./MUSI6106Exec -t time -b 1024 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 256 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 512 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 1024 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 2048 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 4096 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 8192 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 16384 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+$ ./MUSI6106Exec -t freq -b 32768 -g 0.1 -i fake_id.wav -r IR.wav -o out.wav
+```
 
 The experiment raw data is listed below:
 
