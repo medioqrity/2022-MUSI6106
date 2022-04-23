@@ -215,7 +215,7 @@ Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* in
 void UniformlyPartitionedFFTConvolver::__processOneBlock(float* output, const float* input, int bufferLength) {
     assert(bufferLength <= m_blockLength);
     int doubleBlockLength = m_blockLength << 1;
-    memset(iFFTTemp, 0, sizeof(float) * doubleBlockLength);
+    memset(iFFTTemp + bufferLength, 0, sizeof(float) * (doubleBlockLength - bufferLength));
     memcpy(iFFTTemp, input, sizeof(float) * bufferLength);
     m_pCFft->doFft(m_X_origin, iFFTTemp);
 
