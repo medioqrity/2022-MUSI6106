@@ -242,7 +242,7 @@ namespace fastconv_test {
         // initialize input signal, which is $\delta[n-3]$
         int shift = 3;
         int signalLength = 10000;
-        float* input = new float[signalLength](); // make the input signal 10 samples long
+        float* input = new float[signalLength]();
         input[shift] = 1.F;
 
         // we are going to use a longer IR to test more strictly
