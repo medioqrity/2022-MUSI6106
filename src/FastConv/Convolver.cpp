@@ -148,8 +148,6 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     aImag =       new float[m_blockLengthPlusOne]; memset(aImag,        0, sizeof(float) * (m_blockLengthPlusOne));
     cImag =       new float[m_blockLengthPlusOne]; memset(cImag,        0, sizeof(float) * (m_blockLengthPlusOne));
     temp  =       new float[m_blockLengthPlusOne]; memset(temp,         0, sizeof(float) * (m_blockLengthPlusOne));
-    aReal_bReal = new float[m_blockLengthPlusOne]; memset(aReal_bReal,  0, sizeof(float) * (m_blockLengthPlusOne));
-    aImag_bImag = new float[m_blockLengthPlusOne]; memset(aImag_bImag,  0, sizeof(float) * (m_blockLengthPlusOne));
 
     iFFTTemp = new float[doubleBlockLength]; memset(iFFTTemp,  0, sizeof(float) * (doubleBlockLength));
 
@@ -190,8 +188,6 @@ Error_t UniformlyPartitionedFFTConvolver::reset() {
     delete[] cReal;
     delete[] aImag;
     delete[] cImag;
-    delete[] aReal_bReal;
-    delete[] aImag_bImag;
 
     delete[] iFFTTemp;
     delete[] temp;
@@ -266,22 +262,32 @@ void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(CFft::complex_t* A, 
 void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag) {
     // check https://mathworld.wolfram.com/ComplexMultiplication.html for how to reduce 1 multiplication
 
-    // c_r = a_r * b_r - a_i * b_i
-    CVectorFloat::copy (aReal_bReal, aReal, m_blockLengthPlusOne); 
-    CVectorFloat::mul_I(aReal_bReal, bReal, m_blockLengthPlusOne);
-    CVectorFloat::copy (aImag_bImag, aImag, m_blockLengthPlusOne);
-    CVectorFloat::mul_I(aImag_bImag, bImag, m_blockLengthPlusOne);
-    CVectorFloat::copy (cReal, aReal_bReal, m_blockLengthPlusOne);
-    CVectorFloat::sub_I(cReal, aImag_bImag, m_blockLengthPlusOne);
-    
-    // c_i = (a_r + a_i) * (b_r + b_i) - a_r * b_r - a_i * b_i
-    CVectorFloat::copy (cImag, aReal, m_blockLengthPlusOne);
+    // cImag = a + b
+    // cReal = c + d
+    // cImag *= cReal -> (a + b) * (c + d)
+    CVectorFloat::copy(cImag, aReal,  m_blockLengthPlusOne);
     CVectorFloat::add_I(cImag, aImag, m_blockLengthPlusOne);
-    CVectorFloat::copy (temp,  bReal, m_blockLengthPlusOne);
-    CVectorFloat::add_I(temp,  bImag, m_blockLengthPlusOne);
-    CVectorFloat::mul_I(cImag, temp,  m_blockLengthPlusOne);
-    CVectorFloat::sub_I(cImag, aReal_bReal, m_blockLengthPlusOne);
-    CVectorFloat::sub_I(cImag, aImag_bImag, m_blockLengthPlusOne);
+    CVectorFloat::copy(cReal, bReal,  m_blockLengthPlusOne);
+    CVectorFloat::add_I(cReal, bImag, m_blockLengthPlusOne);
+    CVectorFloat::mul_I(cImag, cReal, m_blockLengthPlusOne);
+
+    // cReal = ac
+    CVectorFloat::copy(cReal, aReal,  m_blockLengthPlusOne);
+    CVectorFloat::mul_I(cReal, bReal, m_blockLengthPlusOne);
+
+    // cImag -= ac -> (a + b) * (c + d) - ac
+    CVectorFloat::sub_I(cImag, cReal, m_blockLengthPlusOne);
+
+    // temp = bd
+    CVectorFloat::copy(temp, aImag,   m_blockLengthPlusOne);
+    CVectorFloat::mul_I(temp, bImag,  m_blockLengthPlusOne);
+
+    // cReal -= temp -> ac - bd
+    CVectorFloat::sub_I(cReal, temp,  m_blockLengthPlusOne);
+
+    // cImag -= temp -> (a + b) * (c + d) - ac - bd
+    CVectorFloat::sub_I(cImag, temp,  m_blockLengthPlusOne);
+
 }
 
 void UniformlyPartitionedFFTConvolver::__addToRingBuffer(float* bufferHead, float* data, int length) {

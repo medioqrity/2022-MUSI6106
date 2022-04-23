@@ -74,8 +74,8 @@ private:
     CRingBuffer<float>* m_buffer = nullptr;
 
     // temporal variables that are useful for calculation
-    float* aReal, *cReal, *aReal_bReal;
-    float* aImag, *cImag, *aImag_bImag;
+    float* aReal, *cReal;
+    float* aImag, *cImag;
     float* temp, *iFFTTemp;
 
     void __complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag);
