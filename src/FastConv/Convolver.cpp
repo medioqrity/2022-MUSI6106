@@ -140,16 +140,15 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     m_H_imag = new float* [m_IRNumBlock];
 
     // initialize buffer for temporary results
-    m_buffer = new CRingBuffer<float>((m_IRNumBlock + 1) * blockLength);
+    m_buffer = new CRingBuffer<float>(m_blockLengthPlusOne * blockLength);
 
     // initialize the temp spaces
-    aReal =       new float[m_blockLengthPlusOne]; memset(aReal,        0, sizeof(float) * (m_blockLengthPlusOne));
-    cReal =       new float[m_blockLengthPlusOne]; memset(cReal,        0, sizeof(float) * (m_blockLengthPlusOne));
-    aImag =       new float[m_blockLengthPlusOne]; memset(aImag,        0, sizeof(float) * (m_blockLengthPlusOne));
-    cImag =       new float[m_blockLengthPlusOne]; memset(cImag,        0, sizeof(float) * (m_blockLengthPlusOne));
-    temp  =       new float[m_blockLengthPlusOne]; memset(temp,         0, sizeof(float) * (m_blockLengthPlusOne));
-
-    iFFTTemp = new float[doubleBlockLength]; memset(iFFTTemp,  0, sizeof(float) * (doubleBlockLength));
+    aReal = new float[m_blockLengthPlusOne]();
+    cReal = new float[m_blockLengthPlusOne]();
+    aImag = new float[m_blockLengthPlusOne]();
+    cImag = new float[m_blockLengthPlusOne]();
+    temp  = new float[m_blockLengthPlusOne]();
+    iFFTTemp = new float[doubleBlockLength]();
 
     // allocate memory for frequency domain
     m_X = new CFft::complex_t[doubleBlockLength];
@@ -160,8 +159,8 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
 
     // pre-calculate the spectrogram of the impulse response
     for (int i = 0; i < m_IRNumBlock; ++i) {
-        m_H_real[i] = new float[m_blockLengthPlusOne]; memset(m_H_real[i], 0, sizeof(float) * (m_blockLengthPlusOne));
-        m_H_imag[i] = new float[m_blockLengthPlusOne]; memset(m_H_imag[i], 0, sizeof(float) * (m_blockLengthPlusOne));
+        m_H_real[i] = new float[m_blockLengthPlusOne]();
+        m_H_imag[i] = new float[m_blockLengthPlusOne]();
 
         memset(iFFTTemp, 0, sizeof(float) * doubleBlockLength);
         memcpy(iFFTTemp, impulseResponse + (i * blockLength), sizeof(float) * std::min(blockLength, m_originIRLengthInSample - i * blockLength));
