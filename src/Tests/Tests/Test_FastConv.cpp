@@ -242,13 +242,24 @@ namespace fastconv_test {
         // initialize input signal, which is $\delta[n-3]$
         int shift = 3;
         int signalLength = 10000;
-        float* input = new float[signalLength]; // make the input signal 10 samples long
-        memset(input, 0, sizeof(float) * signalLength); // an impulse as input signal at sample index 3
+        float* input = new float[signalLength](); // make the input signal 10 samples long
         input[shift] = 1.F;
 
+        // we are going to use a longer IR to test more strictly
+        int longerIRLength = signalLength;
+        float* longerIR = new float[longerIRLength]();
+        std::mt19937 generator(114514); // 114514 is seed
+        std::uniform_real_distribution<float> uniformRealDistribution(-1.F, 1.F);
+        for (int i = 0; i < longerIRLength; ++i) {
+            longerIR[i] = uniformRealDistribution(generator);
+        }
+
+        m_pCFastConv->reset();
+        m_pCFastConv->init(longerIR, longerIRLength, 4096, CFastConv::kFreqDomain);
+
         // initialize output signal
-        float* output = new float[signalLength];
-        memset(output, 0, sizeof(float) * signalLength);
+        int outputLength = signalLength + longerIRLength - 1;
+        float* output = new float[outputLength]();
 
         // convolve with varying block size
         int blockLengths[] = {
@@ -258,9 +269,11 @@ namespace fastconv_test {
             m_pCFastConv->process(output + accu, input + accu, blockLengths[i]);
         }
 
+        m_pCFastConv->flushBuffer(output + signalLength);
+
         // check if the output signal is exactly the same with the impulse response
-        for (int i = 0; i < IRLength && i + shift < signalLength; ++i) {
-            EXPECT_NEAR(IR[i], output[i + shift], 1e-6);
+        for (int i = 0; i < longerIRLength && i + shift < outputLength; ++i) {
+            EXPECT_NEAR(longerIR[i], output[i + shift], 1e-6);
         }
 
         // also check if the first three are ok
@@ -269,11 +282,12 @@ namespace fastconv_test {
         }
 
         // also check if tails are all zero
-        for (int i = IRLength + shift; i < signalLength; ++i) {
+        for (int i = longerIRLength + shift; i < outputLength; ++i) {
             EXPECT_NEAR(output[i], 0, 1e-6);
         }
 
         delete[] input;
+        delete[] longerIR;
         delete[] output;
     }
 }
