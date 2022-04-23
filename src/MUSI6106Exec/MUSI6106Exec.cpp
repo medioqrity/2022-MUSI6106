@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cassert>
 #include <chrono>
+#include <cstring>
 
 #include "MUSI6106Config.h"
 
