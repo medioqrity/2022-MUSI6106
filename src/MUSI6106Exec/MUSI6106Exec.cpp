@@ -263,7 +263,15 @@ int main(int argc, char* argv[])
     CFastConv* pCFastConv = new CFastConv();
 
     // command line args
-    ConvolverArgs_t args = parseArg(argc, argv);
+    ConvolverArgs_t args;
+    try {
+        args = parseArg(argc, argv);
+    }
+    catch (const std::exception& e) {
+        printf("Error occurred during argument parsing: %s\n", e.what());
+        printUsage();
+        exit(0);
+    }
     sInputFilePath = args.inputPath;
     sIRFilePath = args.IRPath;
     sOutputFilePath = args.outputPath;
