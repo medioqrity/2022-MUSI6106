@@ -17,11 +17,11 @@ using std::endl;
 void    showClInfo();
 
 typedef struct ConvolverArgs {
-    CFastConv::ConvCompMode_t convolver = CFastConv::ConvCompMode_t::kTimeDomain;
+    CFastConv::ConvCompMode_t convolver = CFastConv::ConvCompMode_t::kFreqDomain;
     float wetGain = 0.1f;
-    int blockSize = 2048;
+    int blockSize = 1 << 16;
     std::string inputPath = "fake_id.wav";
-    std::string IRPath = "fake_id.wav";
+    std::string IRPath = "IR.wav";
     std::string outputPath = "out.wav";
 } ConvolverArgs_t;
 
@@ -192,7 +192,7 @@ public:
         return fileSpec;
     }
 
-    void readData(long long numSample) {
+    void readData(long long& numSample) {
         if (ioType == CAudioFileIf::kFileRead) {
             phAudioFile->readData(buffer, numSample);
         }
@@ -201,6 +201,12 @@ public:
     void writeData(long long numSample) {
         if (ioType == CAudioFileIf::kFileWrite) {
             phAudioFile->writeData(buffer, numSample);
+        }
+    }
+
+    void writeData(float* outputBuffer, long long numSample) {
+        if (ioType == CAudioFileIf::kFileWrite) {
+            phAudioFile->writeData(&outputBuffer, numSample);
         }
     }
 
@@ -268,11 +274,12 @@ int main(int argc, char* argv[])
     AudioFileWrapper outputAudio(sOutputFilePath, args.blockSize, CAudioFileIf::kFileWrite, inputAudio.getFileSpec());
 
     ////////////////////////////////////////////////////////////////////////////
-    impulseResponse.readData(impulseResponse.getNumSample());
+    long long irNumSample = impulseResponse.getNumSample();
+    impulseResponse.readData(irNumSample);
     pCFastConv->init(impulseResponse.getBuffer()[0], impulseResponse.getNumSample(), args.blockSize, args.convolver);
     pCFastConv->setWetGain(args.wetGain);
 
-    int iNumFrames = args.blockSize;
+    long long iNumFrames = args.blockSize;
     long long processDuration = 0;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -289,14 +296,9 @@ int main(int argc, char* argv[])
     }
 
     // flush remaining
-    float* remain = new float[impulseResponse.getNumSample() - 1];
-    memset(remain, 0, sizeof(float) * (impulseResponse.getNumSample() - 1));
+    float* remain = new float[impulseResponse.getNumSample() - 1]();
     pCFastConv->flushBuffer(remain);
-    // and write remaining to output
-    // it's ugly but currently no more elegant way to work around this
-    auto outputAudioFile = outputAudio.getAudioFile();
-    outputAudioFile->writeData(&remain, impulseResponse.getNumSample() - 1);
-
+    outputAudio.writeData(remain, impulseResponse.getNumSample() - 1);
 
     cout << "Accumulated processing time: \t" << processDuration << " ns." << endl;
 

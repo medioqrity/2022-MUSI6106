@@ -140,7 +140,7 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     m_H_imag = new float* [m_IRNumBlock];
 
     // initialize buffer for temporary results
-    m_buffer = new CRingBuffer<float>(m_blockLengthPlusOne * blockLength);
+    m_buffer = new CRingBuffer<float>((m_IRNumBlock + 1) * blockLength);
 
     // initialize the temp spaces
     aReal = new float[m_blockLengthPlusOne]();
@@ -239,12 +239,23 @@ void UniformlyPartitionedFFTConvolver::__processOneBlock(float* output, const fl
 }
 
 Error_t UniformlyPartitionedFFTConvolver::flushBuffer(float *pfOutputBuffer) {
-    for (int i = 0; i < m_IRNumBlock; ++i) {
-        memcpy(
-            pfOutputBuffer + i * m_blockLength, 
-            m_buffer->getHead(i * m_blockLength), 
-            sizeof(float) * std::min(m_blockLength, m_originIRLengthInSample - 1 - i * m_blockLength)
-        );
+    int numSampleToCopy;
+    int numSampleLeftAfterBufferHead;
+
+    for (int i = 0; i < m_originIRLengthInSample - 1; ) {
+        numSampleToCopy = std::min(m_blockLength, m_originIRLengthInSample - 1 - i);
+        if (!numSampleToCopy) break;
+
+        numSampleLeftAfterBufferHead = m_buffer->getLength() - (m_buffer->getHead(i) - m_buffer->begin());
+
+        if (numSampleLeftAfterBufferHead < numSampleToCopy) {
+            memcpy(pfOutputBuffer + i, m_buffer->getHead(i), sizeof(float) * numSampleLeftAfterBufferHead);
+            numSampleToCopy -= numSampleLeftAfterBufferHead;
+            i += numSampleLeftAfterBufferHead;
+        }
+
+        memcpy(pfOutputBuffer + i, m_buffer->getHead(i), sizeof(float) * numSampleToCopy);
+        i += numSampleToCopy;
     }
     applyWetGain(pfOutputBuffer, m_originIRLengthInSample - 1);
     return Error_t::kNoError;
