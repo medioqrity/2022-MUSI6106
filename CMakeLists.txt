@@ -2,9 +2,6 @@ cmake_minimum_required (VERSION 3.0)
 project (MUSI6106
         VERSION 0.0.0.1)
 
-# enable c++17
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-
 #######################################################################################################
 ## includes
 # where to look for the default stuff...
