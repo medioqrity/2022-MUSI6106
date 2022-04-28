@@ -2,6 +2,7 @@
 #include "RingBuffer.h"
 #include "FastConv.h"
 #include <string>
+#include <memory>
 #include "Fft.h"
 #include "Vector.h"
 
@@ -71,12 +72,12 @@ private:
     // CFft::complex_t** m_H = nullptr; // might be multiple blocks
     float** m_H_real = nullptr;
     float** m_H_imag = nullptr;
-    CRingBuffer<float>* m_buffer = nullptr;
+    std::unique_ptr<CRingBuffer<float>> m_buffer = nullptr;
 
     // temporal variables that are useful for calculation
-    float* aReal, *cReal;
-    float* aImag, *cImag;
-    float* temp, *iFFTTemp;
+    float* aReal = nullptr, *cReal = nullptr;
+    float* aImag = nullptr, *cImag = nullptr;
+    float* temp = nullptr, *iFFTTemp = nullptr;
 
     void __complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag);
     void __complexVectorMul_I(CFft::complex_t* A, const float* bReal, const float* bImag);
