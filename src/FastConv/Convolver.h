@@ -86,10 +86,5 @@ private:
     void __complexVectorMul_I(CFft::complex_t* A, const float* bReal, const float* bImag);
 
     void __processOneBlock(float* output, const float* input);
-
-    void __addToRingBuffer(float* bufferHead, float* data, int length);
-
-    void __flushRingBufferToOutput(float* output, int length);
-    void __flushRingBufferToOutputWithNoCheck(float* output, int length);
 };
 
