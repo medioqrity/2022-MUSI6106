@@ -304,7 +304,11 @@ int main(int argc, char* argv[])
 
     // flush remaining
     float* remain = new float[impulseResponse.getNumSample() - 1 + args.blockSize]();
+
+    auto start = std::chrono::steady_clock::now();
     pCFastConv->flushBuffer(remain);
+    processDuration += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+
     outputAudio.writeData(remain, impulseResponse.getNumSample() - 1 + args.blockSize);
 
     cout << "Accumulated processing time: \t" << processDuration << " ns." << endl;
