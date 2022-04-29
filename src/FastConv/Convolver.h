@@ -25,15 +25,18 @@ protected:
     int m_IRLength;
     int m_blockLength;
     float m_wetGain = 1.F;
+    bool m_isInitialized = false;
 };
 
 class ConvolverFactory {
 public:
+    static ConvolverInterface* createConvolver(CFastConv::ConvCompMode_t choice);
     static ConvolverInterface* createConvolver(float *impulseResponse, int irLength, int blockLength, CFastConv::ConvCompMode_t choice);
 };
 
 class TrivialFIRConvolver: public ConvolverInterface {
 public:
+    TrivialFIRConvolver() = default;
     TrivialFIRConvolver(float* impulseResponse, int irLength, int blockLength);
     ~TrivialFIRConvolver();
 
@@ -44,7 +47,7 @@ public:
     Error_t flushBuffer(float*) override;
 
 private:
-    CRingBuffer<float>* m_buffer;
+    std::unique_ptr<CRingBuffer<float>> m_buffer = nullptr;
 
     Error_t initBuffer(int);
     Error_t deleteBuffer();
@@ -53,6 +56,7 @@ private:
 
 class UniformlyPartitionedFFTConvolver: public ConvolverInterface {
 public:
+    UniformlyPartitionedFFTConvolver() = default;
     UniformlyPartitionedFFTConvolver(float* impulseResponse, int irLength, int blockLength);
     ~UniformlyPartitionedFFTConvolver();
 

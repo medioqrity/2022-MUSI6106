@@ -14,17 +14,23 @@ Error_t ConvolverInterface::init(float* impulseResponse, int irLength, int block
 
     // sanity check
     if (impulseResponse == nullptr) return Error_t::kFunctionInvalidArgsError;
-    if (irLength < 0) return Error_t::kFunctionInvalidArgsError;
+    if (irLength <= 0) return Error_t::kFunctionInvalidArgsError;
 
-    m_IR = impulseResponse;
+    m_IR = new float[irLength];
+    memcpy(m_IR, impulseResponse, sizeof(float) * irLength);
+
     m_IRLength = irLength;
     m_blockLength = blockLength;
+
+    m_isInitialized = true;
     return Error_t::kNoError;
 }
 
 Error_t ConvolverInterface::reset() {
+    delete[] m_IR;
     m_IRLength = 0;
     m_blockLength = 0;
+    m_isInitialized = false;
     return Error_t::kNoError;
 }
 
@@ -35,6 +41,21 @@ void ConvolverInterface::applyWetGain(float* output, int length) {
 Error_t ConvolverInterface::setWetGain(float wetGain) {
     m_wetGain = wetGain;
     return Error_t::kNoError;
+}
+
+ConvolverInterface* ConvolverFactory::createConvolver(CFastConv::ConvCompMode_t choice) {
+    switch (choice)
+    {
+    case CFastConv::kTimeDomain:
+        return new TrivialFIRConvolver();
+    case CFastConv::kFreqDomain:
+        return new UniformlyPartitionedFFTConvolver();
+    case CFastConv::kNumConvCompModes:
+        break;
+    default:
+        break;
+    }
+    throw std::invalid_argument("Invalid parameter of convolver type choice");
 }
 
 ConvolverInterface* ConvolverFactory::createConvolver(float* impulseResponse, int irLength, int blockLength, CFastConv::ConvCompMode_t choice) {
@@ -60,7 +81,7 @@ TrivialFIRConvolver::~TrivialFIRConvolver() { reset(); }
 
 Error_t TrivialFIRConvolver::initBuffer(int bufferLength) {
     // init buffer
-    m_buffer = new CRingBuffer<float>(bufferLength);
+    m_buffer = std::make_unique<CRingBuffer<float>>(bufferLength);
 
     // check if buffer is correctly inited
     if (m_buffer == nullptr) {
@@ -72,10 +93,7 @@ Error_t TrivialFIRConvolver::initBuffer(int bufferLength) {
 }
 
 Error_t TrivialFIRConvolver::deleteBuffer() {
-    if (m_buffer != nullptr) {
-        delete m_buffer;
-    }
-    m_buffer = nullptr;
+    m_buffer.reset();
     return Error_t::kNoError;
 }
 
@@ -87,6 +105,8 @@ Error_t TrivialFIRConvolver::init(float* impulseResponse, int irLength, int bloc
 }
 
 Error_t TrivialFIRConvolver::reset() {
+    if (!m_isInitialized) return Error_t::kNoError;
+
     Error_t ret;
     if ((ret = deleteBuffer()) != Error_t::kNoError) return ret;
     return Error_t::kNoError;
@@ -95,6 +115,7 @@ Error_t TrivialFIRConvolver::reset() {
 Error_t TrivialFIRConvolver::process(float* output, const float* input, int bufferLength) {
     for (int i = 0; i < bufferLength; ++i) {
         m_buffer->putPostInc(input[i]);
+        output[i] = 0;
         for (int j = 0; j < m_IRLength; ++j) {
             output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
         }
@@ -107,6 +128,7 @@ Error_t TrivialFIRConvolver::process(float* output, const float* input, int buff
 Error_t TrivialFIRConvolver::flushBuffer(float* output) {
     for (int i = 0; i < m_IRLength - 1; ++i) {
         m_buffer->putPostInc(0.F);
+        output[i] = 0;
         for (int j = 0; j < m_IRLength; ++j) {
             output[i] += m_buffer->get(m_IRLength-j) * m_IR[j];
         }
@@ -182,36 +204,34 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
 }
 
 Error_t UniformlyPartitionedFFTConvolver::reset() {
+    if (!m_isInitialized) return Error_t::kNoError;
+
     Error_t ret;
     if ((ret = ConvolverInterface::reset()) != Error_t::kNoError) return ret;
 
-    if (m_H_real != nullptr) {
-        for (int i = 0; i < m_IRNumBlock; ++i)
-            delete[] m_H_real[i];
-        delete[] m_H_real;
+    for (int i = 0; i < m_IRNumBlock; ++i) {
+        delete[] m_H_real[i];
+        delete[] m_H_imag[i];
     }
-    if (m_H_real != nullptr) {
-        for (int i = 0; i < m_IRNumBlock; ++i)
-            delete[] m_H_imag[i];
-        delete[] m_H_imag;
-    }
-    if (m_X != nullptr) delete[] m_X;
 
-    if (aReal != nullptr) delete[] aReal;
-    if (cReal != nullptr) delete[] cReal;
-    if (aImag != nullptr) delete[] aImag;
-    if (cImag != nullptr) delete[] cImag;
+    delete[] m_H_real;
+    delete[] m_H_imag;
 
-    if (temp != nullptr) delete[] temp;
-    if (iFFTTemp != nullptr) delete[] iFFTTemp;
+    delete[] m_X;
+
+    delete[] aReal;
+    delete[] cReal;
+    delete[] aImag;
+    delete[] cImag;
+
+    delete[] temp;
+    delete[] iFFTTemp;
 
     m_buffer.reset();
 
-    if (m_pCFft != nullptr) {
-        m_pCFft->resetInstance();
-        CFft::destroyInstance(m_pCFft);
-        m_pCFft = nullptr;
-    }
+    m_pCFft->resetInstance();
+    CFft::destroyInstance(m_pCFft);
+    m_pCFft = nullptr;
 
     return Error_t::kNoError;
 }
