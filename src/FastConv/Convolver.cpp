@@ -248,7 +248,7 @@ Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* in
             __processOneBlock(output + i, m_inputBuffer->getHead(0));
         }
         m_inputBuffer->putPostInc(input[i]);
-        output[i] = m_outputBuffer->getPostIncAndSetZero();
+        output[i] = m_outputBuffer->getPostIncAndSetZero() * m_wetGain;
     }
     return Error_t::kNoError;
 }

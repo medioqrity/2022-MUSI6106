@@ -303,9 +303,9 @@ int main(int argc, char* argv[])
     }
 
     // flush remaining
-    float* remain = new float[impulseResponse.getNumSample() - 1]();
+    float* remain = new float[impulseResponse.getNumSample() - 1 + args.blockSize]();
     pCFastConv->flushBuffer(remain);
-    outputAudio.writeData(remain, impulseResponse.getNumSample() - 1);
+    outputAudio.writeData(remain, impulseResponse.getNumSample() - 1 + args.blockSize);
 
     cout << "Accumulated processing time: \t" << processDuration << " ns." << endl;
 
