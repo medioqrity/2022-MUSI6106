@@ -53,7 +53,6 @@ private:
     Error_t deleteBuffer();
 };
 
-
 class UniformlyPartitionedFFTConvolver: public ConvolverInterface {
 public:
     UniformlyPartitionedFFTConvolver() = default;
@@ -73,10 +72,10 @@ private:
     CFft* m_pCFft = nullptr;
     CFft::complex_t* m_X = nullptr;
     CFft::complex_t* m_X_origin = nullptr;
-    // CFft::complex_t** m_H = nullptr; // might be multiple blocks
     float** m_H_real = nullptr;
     float** m_H_imag = nullptr;
-    std::unique_ptr<CRingBuffer<float>> m_buffer = nullptr;
+    std::unique_ptr<CRingBuffer<float>> m_inputBuffer = nullptr;
+    std::unique_ptr<CRingBuffer<float>> m_outputBuffer = nullptr;
 
     // temporal variables that are useful for calculation
     float* aReal = nullptr, *cReal = nullptr;
@@ -86,12 +85,11 @@ private:
     void __complexVectorMul_I(const float* aReal, const float* aImag, const float *bReal, const float* bImag);
     void __complexVectorMul_I(CFft::complex_t* A, const float* bReal, const float* bImag);
 
-    void __processOneBlock(float* output, const float* input, int bufferLength);
+    void __processOneBlock(float* output, const float* input);
 
     void __addToRingBuffer(float* bufferHead, float* data, int length);
 
     void __flushRingBufferToOutput(float* output, int length);
     void __flushRingBufferToOutputWithNoCheck(float* output, int length);
 };
-
 

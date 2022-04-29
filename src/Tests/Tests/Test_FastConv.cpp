@@ -166,8 +166,6 @@ namespace fastconv_test {
             for (int i = 0; i < IRLength; ++i) {
                 IR[i] = uniformRealDistribution(generator);
             }
-
-            m_pCFastConv->init(IR, IRLength, 32, CFastConv::kFreqDomain);
         }
 
         virtual void TearDown()
@@ -178,31 +176,33 @@ namespace fastconv_test {
 
         int IRLength = 0;
         float* IR = nullptr;
+        int blocksize;
         CFastConv *m_pCFastConv = nullptr;
     };
 
     TEST_F(FFTFastConv, identity)
     {
+        blocksize = 4;
+        m_pCFastConv->init(IR, IRLength, blocksize, CFastConv::kFreqDomain);
+
         // initialize input signal, which is $\delta[n-3]$
         int shift = 3;
         int signalLength = 10;
-        float* input = new float[signalLength]; // make the input signal 10 samples long
-        memset(input, 0, sizeof(float) * signalLength); // an impulse as input signal at sample index 3
-        input[shift] = 1.F;
+        float* input = new float[signalLength](); // make the input signal 10 samples long
+        input[shift] = 1.F; // an impulse as input signal at sample index 3
 
         // initialize output signal
-        float* output = new float[signalLength];
-        memset(output, 0, sizeof(float) * signalLength);
+        float* output = new float[signalLength + blocksize]();
 
         m_pCFastConv->process(output, input, signalLength);
 
         // check if the output signal is exactly the same with the impulse response
-        for (int i = 0; i + shift < signalLength; ++i) {
-            EXPECT_NEAR(IR[i], output[i + shift], 1e-6);
+        for (int i = 0; i + shift + blocksize < signalLength; ++i) {
+            EXPECT_NEAR(IR[i], output[i + shift + blocksize], 1e-6);
         }
 
         // also check if the first three are ok
-        for (int i = 0; i < shift; ++i) {
+        for (int i = 0; i < shift + blocksize; ++i) {
             EXPECT_NEAR(output[i], 0, 1e-6);
         }
 
@@ -211,27 +211,28 @@ namespace fastconv_test {
     }
 
     TEST_F(FFTFastConv, flushbuffer) {
+        blocksize = 4;
+        m_pCFastConv->init(IR, IRLength, blocksize, CFastConv::kFreqDomain);
+
         // initialize input signal, which is $\delta[n-3]$
         int shift = 3;
         int signalLength = 10;
-        float* input = new float[signalLength]; // make the input signal 10 samples long
-        memset(input, 0, sizeof(float) * signalLength); // an impulse as input signal at sample index 3
-        input[shift] = 1.F;
+        float* input = new float[signalLength](); // make the input signal 10 samples long
+        input[shift] = 1.F; // an impulse as input signal at sample index 3
 
         // initialize output signal
-        float* output = new float[IRLength];
-        memset(output, 0, sizeof(float) * IRLength);
+        float* output = new float[IRLength + blocksize - 1]();
 
         // process & discard result
         m_pCFastConv->process(output, input, signalLength);
-        memset(output, 0, sizeof(float) * IRLength);
+        memset(output, 0, sizeof(float) * (IRLength + blocksize - 1));
 
         // flush
         m_pCFastConv->flushBuffer(output);
 
         // check if the tail is correct
-        for (int i = 0; i + signalLength - shift < IRLength; ++i) {
-            EXPECT_NEAR(output[i], IR[i + signalLength - shift], 1e-6);
+        for (int i = 0; i + shift < IRLength - 1 && i + signalLength < IRLength; ++i) {
+            EXPECT_NEAR(output[i + blocksize + shift], IR[i + signalLength], 1e-6);
         }
 
         delete[] input;
@@ -254,11 +255,11 @@ namespace fastconv_test {
             longerIR[i] = uniformRealDistribution(generator);
         }
 
-        m_pCFastConv->reset();
-        m_pCFastConv->init(longerIR, longerIRLength, 4096, CFastConv::kFreqDomain);
+        blocksize = 4096;
+        m_pCFastConv->init(longerIR, longerIRLength, blocksize, CFastConv::kFreqDomain);
 
         // initialize output signal
-        int outputLength = signalLength + longerIRLength - 1;
+        int outputLength = signalLength + longerIRLength - 1 + blocksize;
         float* output = new float[outputLength]();
 
         // convolve with varying block size
@@ -272,17 +273,17 @@ namespace fastconv_test {
         m_pCFastConv->flushBuffer(output + signalLength);
 
         // check if the output signal is exactly the same with the impulse response
-        for (int i = 0; i < longerIRLength && i + shift < outputLength; ++i) {
-            EXPECT_NEAR(longerIR[i], output[i + shift], 1e-6);
+        for (int i = 0; i < longerIRLength && i + shift + blocksize < outputLength; ++i) {
+            EXPECT_NEAR(longerIR[i], output[i + shift + blocksize], 1e-6);
         }
 
-        // also check if the first three are ok
-        for (int i = 0; i < shift; ++i) {
+        // also check if the first blocksize + shift samples are ok
+        for (int i = 0; i < shift + blocksize; ++i) {
             EXPECT_NEAR(output[i], 0, 1e-6);
         }
 
         // also check if tails are all zero
-        for (int i = longerIRLength + shift; i < outputLength; ++i) {
+        for (int i = longerIRLength + shift + blocksize; i < outputLength; ++i) {
             EXPECT_NEAR(output[i], 0, 1e-6);
         }
 
@@ -290,6 +291,7 @@ namespace fastconv_test {
         delete[] longerIR;
         delete[] output;
     }
+
     class AlexFastConv: public testing::Test
     {
     protected:
@@ -349,7 +351,7 @@ namespace fastconv_test {
         for (auto i = 0; i < 500; i++)
             m_pCFastConv->process(&m_pfOutput[i], &m_pfInput[i], 1);
 
-        EXPECT_NEAR(1.F, m_pfOutput[0], 1e-6F);
+        EXPECT_NEAR(1.F, m_pfOutput[iBlockLength], 1e-6F);
         EXPECT_NEAR(0.F, CVectorFloat::getMin(m_pfOutput, m_iInputLength), 1e-6F);
         EXPECT_NEAR(1.F, CVectorFloat::getMax(m_pfOutput, m_iInputLength), 1e-6F);
 
@@ -362,9 +364,9 @@ namespace fastconv_test {
         for (auto i = 0; i < 500; i++)
             m_pCFastConv->process(&m_pfOutput[i], &m_pfInput[i], 1);
 
-        // EXPECT_NEAR(0.F, CVectorFloat::getMean(m_pfOutput, 8), 1e-6F);
-        EXPECT_NEAR(1.F, CVectorFloat::getMean(m_pfOutput, 4), 1e-6F);
-        EXPECT_NEAR(0.F, CVectorFloat::getMean(m_pfOutput + 4, 400), 1e-6F);
+        EXPECT_NEAR(0.F, CVectorFloat::getMean(m_pfOutput, 8), 1e-6F);
+        EXPECT_NEAR(1.F, CVectorFloat::getMean(&m_pfOutput[8], 4), 1e-6F);
+        EXPECT_NEAR(0.F, CVectorFloat::getMean(&m_pfOutput[12], 400), 1e-6F);
 
         // impulse with noise
         iBlockLength = 8;
@@ -373,8 +375,8 @@ namespace fastconv_test {
         for (auto i = 0; i < m_iInputLength; i++)
             m_pCFastConv->process(&m_pfOutput[i], &m_pfInput[i], 1);
 
-        CHECK_ARRAY_CLOSE(m_pfIr, m_pfOutput, 27, 1e-6F);
-        CHECK_ARRAY_CLOSE(&m_pfInput[1], m_pfOutput + 27, 10, 1e-6F);
+        CHECK_ARRAY_CLOSE(m_pfIr, &m_pfOutput[iBlockLength], 27, 1e-6F);
+        CHECK_ARRAY_CLOSE(&m_pfInput[1], &m_pfOutput[iBlockLength + 27], 10, 1e-6F);
 
         // noise with impulse
         iBlockLength = 8;
@@ -383,7 +385,7 @@ namespace fastconv_test {
         for (auto i = 0; i < m_iIRLength; i++)
             m_pCFastConv->process(&m_pfOutput[i], &m_pfIr[i], 1);
 
-        CHECK_ARRAY_CLOSE(m_pfIr, m_pfOutput, m_iIRLength - iBlockLength, 1e-6F);
+        CHECK_ARRAY_CLOSE(m_pfIr, &m_pfOutput[iBlockLength], m_iIRLength - iBlockLength, 1e-6F);
     }
     TEST_F(AlexFastConv, ImpulseTime)
     {
@@ -430,23 +432,23 @@ namespace fastconv_test {
         CHECK_ARRAY_CLOSE(m_pfIr, &m_pfOutput[0], m_iIRLength , 1e-6F);
     }
 
-    // TEST_F(AlexFastConv, BlockLengths)
-    // {
-    //     // impulse with noise
-    //     int iBlockLength = 4;
+    TEST_F(AlexFastConv, BlockLengths)
+    {
+        // impulse with noise
+        int iBlockLength = 4;
 
-    //     for (auto j = 0; j < 10; j++)
-    //     {
-    //         m_pCFastConv->init(m_pfIr, 51, iBlockLength);
+        for (auto j = 0; j < 10; j++)
+        {
+            m_pCFastConv->init(m_pfIr, 51, iBlockLength);
 
-    //         for (auto i = 0; i < m_iInputLength; i++)
-    //             m_pCFastConv->process(&m_pfOutput[i], &m_pfInput[i], 1);
+            for (auto i = 0; i < m_iInputLength; i++)
+                m_pCFastConv->process(&m_pfOutput[i], &m_pfInput[i], 1);
 
-    //         CHECK_ARRAY_CLOSE(m_pfIr, m_pfOutput, 51, 1e-6F);
+            CHECK_ARRAY_CLOSE(m_pfIr, &m_pfOutput[iBlockLength], 51 - iBlockLength, 1e-6F);
 
-    //         iBlockLength <<= 1;
-    //     }
-    // }
+            iBlockLength <<= 1;
+        }
+    }
 
     TEST_F(AlexFastConv, InputLengths)
     {
@@ -473,9 +475,8 @@ namespace fastconv_test {
             iCurrIdx += aiInputLength[i];
         }
 
-        CHECK_ARRAY_CLOSE(m_pfIr, m_pfOutput, m_iIRLength, 1e-6F);
-        EXPECT_NEAR(0.F, CVectorFloat::getMean(m_pfOutput + m_iIRLength, 10000), 1e-6F);
-
+        CHECK_ARRAY_CLOSE(m_pfIr, &m_pfOutput[iBlockLength], m_iIRLength, 1e-6F);
+        EXPECT_NEAR(0.F, CVectorFloat::getMean(&m_pfOutput[m_iIRLength + iBlockLength], 10000), 1e-6F);
     }
 
     TEST_F(AlexFastConv, FlushBuffer)
@@ -491,7 +492,8 @@ namespace fastconv_test {
 
         m_pCFastConv->flushBuffer(&m_pfOutput[1]);
 
-        CHECK_ARRAY_CLOSE(m_pfIr, m_pfOutput, iIrLength, 1e-6F);
+        EXPECT_NEAR(0.F, CVectorFloat::getMean(m_pfOutput, iBlockLength), 1e-6F);
+        CHECK_ARRAY_CLOSE(m_pfIr, &m_pfOutput[iBlockLength], iIrLength, 1e-6F);
 
         // same for time domain
         CVectorFloat::setZero(m_pfOutput, m_iInputLength + m_iIRLength);

@@ -87,6 +87,14 @@ public:
         return tValue;
     }
 
+    T getPostIncAndSetZero()
+    {
+        T tValue = get();
+        m_ptBuff[m_iReadIdx] = 0;
+        incIdx(m_iReadIdx);
+        return tValue;
+    }
+
     /*! return the values starting at the current read index and increment the read pointer
     \param ptBuff: pointer to where the values will be written
     \param iLength: number of values

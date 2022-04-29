@@ -152,7 +152,7 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
 
     Error_t ret;
     if ((ret = ConvolverInterface::init(impulseResponse, irLength, blockLength)) != Error_t::kNoError) return ret;
-    if (blockLength != (blockLength & -blockLength)) return Error_t::kFunctionInvalidArgsError;
+    if (blockLength <= 0 || blockLength != (blockLength & -blockLength)) return Error_t::kFunctionInvalidArgsError;
 
     m_originIRLengthInSample = irLength;
 
@@ -168,8 +168,13 @@ Error_t UniformlyPartitionedFFTConvolver::init(float* impulseResponse, int irLen
     m_H_real = new float* [m_IRNumBlock];
     m_H_imag = new float* [m_IRNumBlock];
 
+    // input buffer: wait until there's enough samples
+    m_inputBuffer = std::make_unique<CRingBuffer<float>>(m_blockLength);
+    m_inputBuffer->setReadIdx(0);
+    m_inputBuffer->setWriteIdx(0);
+
     // initialize buffer for temporary results
-    m_buffer = std::make_unique<CRingBuffer<float>>((m_IRNumBlock + 1) * blockLength);
+    m_outputBuffer = std::make_unique<CRingBuffer<float>>((m_IRNumBlock + 1) * blockLength);
 
     // initialize the temp spaces
     aReal = new float[m_blockLengthPlusOne]();
@@ -227,7 +232,8 @@ Error_t UniformlyPartitionedFFTConvolver::reset() {
     delete[] temp;
     delete[] iFFTTemp;
 
-    m_buffer.reset();
+    m_inputBuffer.reset();
+    m_outputBuffer.reset();
 
     m_pCFft->resetInstance();
     CFft::destroyInstance(m_pCFft);
@@ -237,22 +243,20 @@ Error_t UniformlyPartitionedFFTConvolver::reset() {
 }
 
 Error_t UniformlyPartitionedFFTConvolver::process(float* output, const float* input, int bufferLength) {
-    int accuLength = 0;
-    int curBufferLength;
-    while (bufferLength) {
-        curBufferLength = std::min(bufferLength, m_blockLength);
-        __processOneBlock(output + accuLength, input + accuLength, curBufferLength);
-        accuLength += curBufferLength;
-        bufferLength -= curBufferLength;
+    for (int i = 0; i < bufferLength; ++i) {
+        if (!m_inputBuffer->getNumValuesInBuffer()) {
+            __processOneBlock(output + i, m_inputBuffer->getHead(0));
+        }
+        m_inputBuffer->putPostInc(input[i]);
+        output[i] = m_outputBuffer->getPostIncAndSetZero();
     }
     return Error_t::kNoError;
 }
 
-void UniformlyPartitionedFFTConvolver::__processOneBlock(float* output, const float* input, int bufferLength) {
-    assert(bufferLength <= m_blockLength);
+void UniformlyPartitionedFFTConvolver::__processOneBlock(float* output, const float* input) {
     int doubleBlockLength = m_blockLength << 1;
-    memset(iFFTTemp + bufferLength, 0, sizeof(float) * (doubleBlockLength - bufferLength));
-    memcpy(iFFTTemp, input, sizeof(float) * bufferLength);
+    memset(iFFTTemp + m_blockLength, 0, sizeof(float) * m_blockLength);
+    memcpy(iFFTTemp, input, sizeof(float) * m_blockLength);
     m_pCFft->doFft(m_X_origin, iFFTTemp);
 
     // do convolution for each block on frequency domain
@@ -264,36 +268,34 @@ void UniformlyPartitionedFFTConvolver::__processOneBlock(float* output, const fl
 
         int offset = i * m_blockLength;
         for (int j = 0; j < 2; ++j) {
-            __addToRingBuffer(m_buffer->getHead(offset + j * m_blockLength), iFFTTemp + j * m_blockLength, m_blockLength);
+            CVectorFloat::add_I(
+                m_outputBuffer->getHead(offset + j * m_blockLength),
+                iFFTTemp + j * m_blockLength,
+                m_blockLength
+            );
         }
     }
 
     // update output using ringbuffer buffer
-    __flushRingBufferToOutput(output, bufferLength);
+    // __flushRingBufferToOutput(output, numSampleToWrite);
 
-    applyWetGain(output, bufferLength);
+    // applyWetGain(output, numSampleToWrite);
 }
 
 Error_t UniformlyPartitionedFFTConvolver::flushBuffer(float *pfOutputBuffer) {
-    int numSampleToCopy;
-    int numSampleLeftAfterBufferHead;
+    int tailLength = m_originIRLengthInSample - 1 + m_blockLength;
+    int numSampleNeededToFlushTail = m_outputBuffer->getLength();
 
-    for (int i = 0; i < m_originIRLengthInSample - 1; ) {
-        numSampleToCopy = std::min(m_blockLength, m_originIRLengthInSample - 1 - i);
-        if (!numSampleToCopy) break;
+    float zero = 0;
+    float* output = new float[numSampleNeededToFlushTail]();
 
-        numSampleLeftAfterBufferHead = m_buffer->getLength() - (m_buffer->getHead(i) - m_buffer->begin());
-
-        if (numSampleLeftAfterBufferHead < numSampleToCopy) {
-            memcpy(pfOutputBuffer + i, m_buffer->getHead(i), sizeof(float) * numSampleLeftAfterBufferHead);
-            numSampleToCopy -= numSampleLeftAfterBufferHead;
-            i += numSampleLeftAfterBufferHead;
-        }
-
-        memcpy(pfOutputBuffer + i, m_buffer->getHead(i), sizeof(float) * numSampleToCopy);
-        i += numSampleToCopy;
+    for (int i = 0; i < numSampleNeededToFlushTail; ++i) {
+        process(output + i, &zero, 1);
     }
-    applyWetGain(pfOutputBuffer, m_originIRLengthInSample - 1);
+
+    memcpy(pfOutputBuffer, output, sizeof(float) * tailLength);
+    delete[] output;
+
     return Error_t::kNoError;
 }
 
@@ -337,14 +339,14 @@ void UniformlyPartitionedFFTConvolver::__complexVectorMul_I(const float* aReal, 
 }
 
 void UniformlyPartitionedFFTConvolver::__addToRingBuffer(float* bufferHead, float* data, int length) {
-    auto headIndex = bufferHead - m_buffer->begin();
-    if (headIndex + length >= m_buffer->getLength()) {
-        auto restLength = (m_buffer->getLength() - headIndex);
+    auto headIndex = bufferHead - m_outputBuffer->begin();
+    if (headIndex + length >= m_outputBuffer->getLength()) {
+        auto restLength = (m_outputBuffer->getLength() - headIndex);
         CVectorFloat::add_I(bufferHead, data, restLength);
 
         length -= restLength;
         data += restLength;
-        bufferHead = m_buffer->getHead(0);
+        bufferHead = m_outputBuffer->getHead(0);
     }
 
     CVectorFloat::add_I(bufferHead, data, length);
@@ -355,11 +357,11 @@ void UniformlyPartitionedFFTConvolver::__flushRingBufferToOutput(float* output, 
     // length not divisible by blockLength) thus the head is not always located at the 
     // beginning of the block in buffer. We need to deal with that.
 
-    auto headIndex = m_buffer->getReadIdx();
+    auto headIndex = m_outputBuffer->getReadIdx();
 
     // overflow, we need to cpy & set two memory region
-    if (headIndex + length >= m_buffer->getLength()) {
-        auto restLength = (m_buffer->getLength() - headIndex);
+    if (headIndex + length >= m_outputBuffer->getLength()) {
+        auto restLength = (m_outputBuffer->getLength() - headIndex);
         __flushRingBufferToOutputWithNoCheck(output, restLength);
         length -= restLength;
     }
@@ -368,9 +370,9 @@ void UniformlyPartitionedFFTConvolver::__flushRingBufferToOutput(float* output, 
 }
 
 void UniformlyPartitionedFFTConvolver::__flushRingBufferToOutputWithNoCheck(float* output, int length) {
-    auto head = m_buffer->getHead(0);
+    auto head = m_outputBuffer->getHead(0);
     memcpy(output, head, sizeof(float) * length);
     memset(head, 0, sizeof(float) * length);
-    m_buffer->setReadIdx(m_buffer->getReadIdx() + length);
+    m_outputBuffer->setReadIdx(m_outputBuffer->getReadIdx() + length);
 }
 
