@@ -24,7 +24,7 @@ def extractor(s: str) -> Optional[int]:
 
 input_filename = "bin/Debug/fake_id_short.wav"
 ir_filename = "bin/Debug/IR_MEDIUM.wav"
-output_filename = "bin/Debug/out.wav"
+output_filename = "bin/Debug/out_short.wav"
 N_EXP = 100
 
 with open("runtime.csv", "w", encoding="utf-8") as f:
