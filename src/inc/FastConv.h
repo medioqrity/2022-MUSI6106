@@ -6,6 +6,8 @@
 
 #include "ErrorDef.h"
 
+class ConvolverInterface;
+
 /*! \brief interface for fast convolution
 */
 class CFastConv
@@ -49,9 +51,13 @@ public:
     */
     Error_t flushBuffer(float* pfOutputBuffer);
 
+    /*! set wet gain
+    \param wetGain in percentage (not Decibel!)
+    \return Error_t
+    */
+    Error_t setWetGain(float wetGain);
 private:
-
+    ConvolverInterface* convolver;
 };
-
 
 #endif

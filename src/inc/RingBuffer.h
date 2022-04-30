@@ -87,6 +87,14 @@ public:
         return tValue;
     }
 
+    T getPostIncAndSetZero()
+    {
+        T tValue = get();
+        m_ptBuff[m_iReadIdx] = 0;
+        incIdx(m_iReadIdx);
+        return tValue;
+    }
+
     /*! return the values starting at the current read index and increment the read pointer
     \param ptBuff: pointer to where the values will be written
     \param iLength: number of values
@@ -96,6 +104,20 @@ public:
     {
         get(ptBuff, iLength);
         incIdx(m_iReadIdx, iLength);
+    }
+
+    T get(int iOffset) const {
+        if (iOffset == 0) {
+            return m_ptBuff[m_iReadIdx];
+        }
+        else {
+            int iRead = m_iReadIdx + iOffset;
+            while (iRead > m_iBuffLength - 1)
+                iRead -= m_iBuffLength;
+            while (iRead < 0)
+                iRead += m_iBuffLength;
+            return m_ptBuff[iRead];
+        }
     }
 
     /*! return the value at the current read index
@@ -199,6 +221,26 @@ public:
     {
         return m_iBuffLength;
     }
+
+    /*! returns the head of read index with offset
+    \return T*
+    */
+    T* getHead(int iOffset) const {
+        int iRead = m_iReadIdx + iOffset;
+        while (iRead > m_iBuffLength - 1)
+            iRead -= m_iBuffLength;
+        while (iRead < 0)
+            iRead += m_iBuffLength;
+        return m_ptBuff + iRead;
+    }
+
+    /*! returns the head of buffer
+    \return T*
+    */
+    T* begin() const {
+        return m_ptBuff;
+    }
+
 private:
     CRingBuffer();
     CRingBuffer(const CRingBuffer& that);
